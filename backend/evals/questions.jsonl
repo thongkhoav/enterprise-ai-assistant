@@ -1,0 +1,47 @@
+{"question":"What is the refund SLA policy?","expected_route":"rag","answer_keywords":["refund"]}
+{"question":"How long does standard refund processing take?","expected_route":"rag","answer_keywords":["refund"]}
+{"question":"What file types are supported for enterprise data imports?","expected_route":"rag","answer_keywords":["import"]}
+{"question":"When should a failed import create a ticket?","expected_route":"rag","answer_keywords":["ticket"]}
+{"question":"Create a ticket for a failed CSV import for customer C-100.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"Open an urgent incident task for production data access misuse.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"What approval is required for production data access?","expected_route":"rag","answer_keywords":["access"]}
+{"question":"Are shared accounts allowed?","expected_route":"rag","answer_keywords":["accounts"]}
+{"question":"How quickly must critical incidents be triaged?","expected_route":"rag","answer_keywords":["incident"]}
+{"question":"How often should customer-facing incident updates be sent?","expected_route":"rag","answer_keywords":["incident"]}
+{"question":"What is current MRR revenue?","expected_route":"database","answer_keywords":["revenue"]}
+{"question":"Show the top revenue region.","expected_route":"database","answer_keywords":["revenue"]}
+{"question":"How many enterprise customers do we have?","expected_route":"database","answer_keywords":["customer"]}
+{"question":"How many customers are at churn risk?","expected_route":"database","answer_keywords":["customer"]}
+{"question":"How many employees are in engineering?","expected_route":"database","answer_keywords":["employee"]}
+{"question":"What is the support SLA response time?","expected_route":"database","answer_keywords":["sla"]}
+{"question":"How many SLA breaches happened in the last 7 days?","expected_route":"database","answer_keywords":["sla"]}
+{"question":"Search docs for the secure import portal rule.","expected_route":"rag","answer_keywords":["import"]}
+{"question":"What information is needed for a failed import ticket?","expected_route":"rag","answer_keywords":["ticket"]}
+{"question":"Create a high priority ticket about a critical incident.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"Summarize access control policy for production data.","expected_route":"rag","answer_keywords":["access"]}
+{"question":"What should a CSM do for expedited refund handling?","expected_route":"rag","answer_keywords":["refund"]}
+{"question":"Does the policy mention PDF attachments?","expected_route":"rag","answer_keywords":["pdf"]}
+{"question":"Which customers can use enterprise support?","expected_route":"rag","answer_keywords":["customer"]}
+{"question":"Query database for customer totals.","expected_route":"database","answer_keywords":["customer"]}
+{"question":"Query database for employee distribution.","expected_route":"database","answer_keywords":["employee"]}
+{"question":"Report database SLA status.","expected_route":"database","answer_keywords":["sla"]}
+{"question":"Create a task to investigate refund delay.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"Create an issue for upload portal timeout.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"What is the max file size before using secure import portal?","expected_route":"rag","answer_keywords":["100"]}
+{"question":"What is the policy for manager approval?","expected_route":"rag","answer_keywords":["approval"]}
+{"question":"What route should handle database revenue questions?","expected_route":"database","answer_keywords":["revenue"]}
+{"question":"Create a bug for missing customer ID in import logs.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"What plan levels receive enterprise support?","expected_route":"rag","answer_keywords":["enterprise"]}
+{"question":"What does the assistant know about incident response?","expected_route":"rag","answer_keywords":["incident"]}
+{"question":"What approvals are needed for production data access?","expected_route":"rag","answer_keywords":["access"]}
+{"question":"What fields are required for an access request?","expected_route":"rag","answer_keywords":["access"]}
+{"question":"How should failed imports be classified?","expected_route":"rag","answer_keywords":["import"]}
+{"question":"What should a rollback plan include?","expected_route":"rag","answer_keywords":["rollback"]}
+{"question":"What are the roles in an incident response?","expected_route":"rag","answer_keywords":["incident"]}
+{"question":"When does a renewal become high risk?","expected_route":"rag","answer_keywords":["risk"]}
+{"question":"What should a QBR preparation include?","expected_route":"rag","answer_keywords":["qbr"]}
+{"question":"What is the difference between a credit and a refund?","expected_route":"rag","answer_keywords":["refund"]}
+{"question":"Which billing questions should go to legal operations?","expected_route":"rag","answer_keywords":["legal"]}
+{"question":"How is import success rate defined?","expected_route":"rag","answer_keywords":["import"]}
+{"question":"What metrics are used for product reliability?","expected_route":"rag","answer_keywords":["reliability"]}
+{"question":"Create a ticket for suspicious production access.","expected_route":"ticket","answer_keywords":["ticket"]}
