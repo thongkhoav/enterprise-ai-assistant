@@ -13,9 +13,15 @@ class RAGService:
         )
 
     async def retrieve(self, question: str) -> list[dict]:
+        """Retrieve the top-k most relevant document chunks for a question from the vector store."""
         return await self.vector_store.search(question, top_k=self.settings.rag_top_k)
 
     async def answer(self, question: str, docs: list[dict], tool_results: list[dict]) -> str:
+        """Generate the final answer from retrieved docs and tool results.
+
+        Calls OpenAI with a citation-instructed prompt when a key is configured; otherwise falls
+        back to a deterministic mock answer so the system still runs offline.
+        """
         if not self._client:
             return self._mock_answer(question, docs, tool_results)
 
@@ -38,6 +44,10 @@ class RAGService:
         return response.output_text
 
     def _format_context(self, docs: list[dict], tool_results: list[dict]) -> str:
+        """Format retrieved docs and tool results into a single context string for the prompt.
+
+        Document lines are tagged with [source#chunk_id] so the model can cite evidence.
+        """
         doc_lines = []
         for index, doc in enumerate(docs, start=1):
             metadata = doc.get("metadata", {})
@@ -49,6 +59,7 @@ class RAGService:
         return "\n\n".join([*doc_lines, *tool_lines]) or "No context found."
 
     def _mock_answer(self, question: str, docs: list[dict], tool_results: list[dict]) -> str:
+        """Build a deterministic placeholder answer used when OPENAI_API_KEY is not configured."""
         citations = []
         for doc in docs[:3]:
             metadata = doc.get("metadata", {})

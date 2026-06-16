@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     chroma_path: Path = Path("data/chroma")
     chroma_collection: str = "enterprise_knowledge"
-    tickets_db_path: Path = Path("data/tickets.db")
+    database_url: str = "postgresql://postgres:postgres@localhost:5433/enterprise_ai"
     trace_log_path: Path = Path("logs/traces.jsonl")
 
     rag_top_k: int = 5
@@ -46,6 +46,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     settings = Settings()
     settings.chroma_path.mkdir(parents=True, exist_ok=True)
-    settings.tickets_db_path.parent.mkdir(parents=True, exist_ok=True)
     settings.trace_log_path.parent.mkdir(parents=True, exist_ok=True)
     return settings

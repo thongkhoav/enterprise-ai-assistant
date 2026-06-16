@@ -4,7 +4,12 @@ from uuid import uuid4
 from langgraph.graph import END, StateGraph
 
 from app.agents.state import AgentState
-from app.agents.tools import create_ticket_tool, query_database_tool, search_docs_tool
+from app.agents.tools import (
+    create_ticket_tool,
+    format_ticket_confirmation,
+    query_database_tool,
+    search_docs_tool,
+)
 from app.core.config import Settings
 from app.db.tickets import TicketStore
 from app.schemas.chat import ChatRequest
@@ -125,12 +130,26 @@ class AgentRunner:
         return {**state, "tool_results": results}
 
     async def _answer_generator(self, state: AgentState) -> AgentState:
+        tool_results = state.get("tool_results", [])
+
+        if state.get("route") == "ticket":
+            ticket = self._tool_result(tool_results, "create_ticket")
+            if ticket:
+                return {**state, "answer": format_ticket_confirmation(ticket)}
+
         answer = await self.rag.answer(
             state["question"],
             state.get("documents", []),
-            state.get("tool_results", []),
+            tool_results,
         )
         return {**state, "answer": answer}
+
+    @staticmethod
+    def _tool_result(tool_results: list[dict], name: str) -> dict | None:
+        for item in tool_results:
+            if item.get("name") == name:
+                return item.get("result")
+        return None
 
     def _citations(self, documents: list[dict]) -> list[dict]:
         citations = []

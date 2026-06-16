@@ -20,6 +20,11 @@ class EmbeddingClient:
         self._local_model: Any | None = None
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of texts into vectors using the configured provider.
+
+        Routes to the OpenAI API, a local fastembed model (run in a worker thread), or the offline
+        deterministic `hash` fallback.
+        """
         if self.provider == "openai" and self._openai_client:
             response = await self._openai_client.embeddings.create(
                 model=self.settings.openai_embedding_model,
@@ -33,6 +38,11 @@ class EmbeddingClient:
         return [self._hash_embedding(text) for text in texts]
 
     def _resolve_provider(self) -> str:
+        """Decide which embedding backend to use.
+
+        For `auto`, prefer OpenAI (if a key is set), then local fastembed, then hash. Raises if
+        `openai` is forced without a key; otherwise returns the explicitly configured provider.
+        """
         if self.settings.embedding_provider == "auto":
             if self.settings.openai_api_key:
                 return "openai"
@@ -46,11 +56,13 @@ class EmbeddingClient:
         return self.settings.embedding_provider
 
     def _embed_local(self, texts: list[str]) -> list[list[float]]:
+        """Embed texts with the local fastembed model (synchronous; called via a thread)."""
         model = self._load_local_model()
         embeddings = model.embed(texts)
         return [embedding.tolist() for embedding in embeddings]
 
     def _load_local_model(self) -> Any:
+        """Lazily import and cache the fastembed model; errors with install hint if missing."""
         if self._local_model is not None:
             return self._local_model
 
@@ -66,6 +78,7 @@ class EmbeddingClient:
         return self._local_model
 
     def _fastembed_available(self) -> bool:
+        """Return True if the optional fastembed package is installed."""
         try:
             import fastembed  # noqa: F401
         except ImportError:
@@ -73,6 +86,11 @@ class EmbeddingClient:
         return True
 
     def _hash_embedding(self, text: str) -> list[float]:
+        """Build a deterministic, dependency-free embedding by hashing tokens into a vector.
+
+        Each token is hashed to a dimension index and counted, then the vector is L2-normalized.
+        Useful for offline bootstrapping and tests; not semantically meaningful like a real model.
+        """
         vector = [0.0] * self.settings.embedding_dimensions
         for token in text.lower().split():
             digest = sha1(token.encode("utf-8")).hexdigest()

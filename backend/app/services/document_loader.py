@@ -18,6 +18,10 @@ class LoadedDocument:
 
 
 async def load_upload(file: UploadFile, *, source: str | None = None) -> LoadedDocument:
+    """Read an uploaded file, extract its text, and return a LoadedDocument.
+
+    The document_id is a content hash, so uploading the same bytes again is idempotent.
+    """
     content = await file.read()
     filename = file.filename or "upload"
     suffix = Path(filename).suffix.lower()
@@ -32,6 +36,7 @@ async def load_upload(file: UploadFile, *, source: str | None = None) -> LoadedD
 
 
 def load_file(path: Path, *, source: str | None = None) -> LoadedDocument:
+    """Load a document from a local path (used by the seed script); mirrors load_upload."""
     content = path.read_bytes()
     text, metadata = _extract_text(content, path.suffix.lower())
     digest = sha1(content).hexdigest()[:16]
@@ -44,6 +49,12 @@ def load_file(path: Path, *, source: str | None = None) -> LoadedDocument:
 
 
 def _extract_text(content: bytes, suffix: str) -> tuple[str, dict]:
+    """Extract plain text from raw bytes based on file type.
+
+    Handles PDF (pypdf, per page) and DOCX (python-docx, per paragraph), and falls back to UTF-8
+    decoding for everything else. Returns the text plus type-specific metadata such as page_count
+    or paragraph_count.
+    """
     if suffix == ".pdf":
         reader = PdfReader(BytesIO(content))
         pages = [page.extract_text() or "" for page in reader.pages]

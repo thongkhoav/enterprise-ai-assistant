@@ -22,6 +22,13 @@ def chunk_text(
     overlap: int,
     base_metadata: dict | None = None,
 ) -> list[TextChunk]:
+    """Split text into overlapping fixed-size character chunks for embedding and retrieval.
+
+    Whitespace is normalized first, then the text is sliced into windows of `chunk_size` characters
+    that overlap by `overlap` characters so context near a boundary is not lost. Each chunk gets a
+    stable id derived from the document id, its index, and a content hash. Raises ValueError if
+    `overlap >= chunk_size`; returns an empty list for blank text.
+    """
     clean = " ".join(text.split())
     if not clean:
         return []

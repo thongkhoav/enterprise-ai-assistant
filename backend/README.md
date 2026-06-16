@@ -17,6 +17,11 @@ FastAPI skeleton for an enterprise AI assistant with:
 
 Use Python 3.11 or newer and `uv`.
 
+Detailed guides:
+
+- [Local setup](docs/LOCAL_SETUP.md)
+- [Production setup](docs/PRODUCTION_SETUP.md)
+
 ```bash
 brew install uv
 ```
@@ -27,8 +32,19 @@ uv sync --extra dev
 cp .env.example .env
 ```
 
+Start Postgres (used for tickets). The bundled Compose `db` service runs it on host port `5433`,
+matching the default `DATABASE_URL` in `.env.example`:
+
+```bash
+docker compose up -d db
+```
+
+The app creates its tables on startup, so Postgres must be reachable before you run `make dev`.
+Host port `5433` avoids clashing with a Postgres instance you may already run locally on `5432`.
+
 Set `OPENAI_API_KEY` in `.env` when you want real LLM and embedding calls.
-Without it, the app still runs with deterministic local embeddings and mock answers.
+Without it, the app still runs with deterministic local embeddings and mock answers (tickets still
+require Postgres).
 
 ```bash
 make dev
@@ -117,6 +133,9 @@ The first run downloads the model. If you switch embedding providers/models afte
 clear `data/chroma` and run `make seed` again because vector dimensions may differ.
 
 ## Docker
+
+This starts both Postgres (`db`) and the API together; the API waits for Postgres to be healthy
+before booting:
 
 ```bash
 cp .env.example .env

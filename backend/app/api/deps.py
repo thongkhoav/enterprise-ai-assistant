@@ -36,7 +36,7 @@ def get_vector_store() -> VectorStore:
 
 @lru_cache(maxsize=1)
 def get_ticket_store() -> TicketStore:
-    return TicketStore(get_settings().tickets_db_path)
+    return TicketStore()
 
 
 @lru_cache(maxsize=1)

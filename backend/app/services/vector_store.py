@@ -16,6 +16,11 @@ class VectorStore:
         self.collection = self.client.get_or_create_collection(settings.chroma_collection)
 
     async def upsert_chunks(self, chunks: list[TextChunk]) -> None:
+        """Embed chunk texts and upsert them into the Chroma collection.
+
+        Upsert is keyed by chunk id, so re-indexing the same chunks is idempotent. The blocking
+        Chroma call runs in a worker thread to avoid stalling the event loop.
+        """
         if not chunks:
             return
 
@@ -29,6 +34,7 @@ class VectorStore:
         )
 
     async def search(self, query: str, *, top_k: int) -> list[dict[str, Any]]:
+        """Embed the query and return the top_k nearest chunks as {text, metadata, score} dicts."""
         query_embedding = (await self.embeddings.embed_texts([query]))[0]
         result = await asyncio.to_thread(
             self.collection.query,
@@ -39,6 +45,7 @@ class VectorStore:
         return self._normalize_results(result)
 
     def _metadata_for(self, chunk: TextChunk) -> dict[str, Any]:
+        """Build Chroma-safe metadata for a chunk, keeping only scalar values."""
         metadata = {
             "source": chunk.source,
             "document_id": chunk.document_id,
@@ -52,6 +59,7 @@ class VectorStore:
         }
 
     def _normalize_results(self, result: dict[str, Any]) -> list[dict[str, Any]]:
+        """Flatten Chroma's query result; convert each distance to score = 1 / (1 + distance)."""
         documents = result.get("documents", [[]])[0]
         metadatas = result.get("metadatas", [[]])[0]
         distances = result.get("distances", [[]])[0]
