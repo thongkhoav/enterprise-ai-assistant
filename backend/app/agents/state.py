@@ -2,7 +2,7 @@ from typing import Any, TypedDict
 
 
 class AgentState(TypedDict, total=False):
-    session_id: str
+    conversation_id: str
     question: str
     route: str
     documents: list[dict[str, Any]]

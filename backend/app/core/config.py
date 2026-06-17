@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     app_env: str = "local"
     app_api_key: str = "dev-secret"
 
+    jwt_secret: str = "dev-jwt-secret-change-me-in-production-0123456789"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24
+
     openai_api_key: str | None = None
     openai_model: str | None = None
     embedding_provider: Literal["auto", "openai", "local", "hash"] = "hash"

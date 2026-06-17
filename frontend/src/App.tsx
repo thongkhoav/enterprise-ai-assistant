@@ -1,12 +1,28 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { streamChat } from "./api/client";
+import {
+  deleteConversation as apiDeleteConversation,
+  fetchMe,
+  getConversation,
+  listConversations,
+  streamChat,
+} from "./api/client";
+import { AuthScreen } from "./components/AuthScreen";
 import { ChatConsole } from "./components/ChatConsole";
 import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
+import { clearToken, getToken, setToken } from "./lib/auth";
 import { newId } from "./lib/ids";
-import { loadSettings, saveSettings } from "./lib/settings";
-import type { ApiChatMessage, ChatMessage, Citation, Settings, ToolResult } from "./types";
+import { loadSettings } from "./lib/settings";
+import type {
+  ApiMessage,
+  AuthUser,
+  ChatMessage,
+  Citation,
+  ConversationSummary,
+  Settings,
+  ToolResult,
+} from "./types";
 
 const STARTER_MESSAGES: ChatMessage[] = [
   {
@@ -17,7 +33,13 @@ const STARTER_MESSAGES: ChatMessage[] = [
 ];
 
 export function App() {
-  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [settings] = useState<Settings>(() => loadSettings());
+  const [token, setTokenState] = useState<string | null>(() => getToken());
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
   const [messages, setMessages] = useState<ChatMessage[]>(STARTER_MESSAGES);
   const [isStreaming, setIsStreaming] = useState(false);
   const [route, setRoute] = useState("none");
@@ -25,24 +47,118 @@ export function App() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [toolResults, setToolResults] = useState<ToolResult[]>([]);
 
-  const apiHistory = useMemo<ApiChatMessage[]>(
-    () =>
-      messages
-        .filter((message) => message.id !== "welcome")
-        .slice(-8)
-        .map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-    [messages],
-  );
+  const handleLogout = useCallback(() => {
+    clearToken();
+    setTokenState(null);
+    setUser(null);
+    setConversations([]);
+    setActiveConversationId(null);
+    setMessages(STARTER_MESSAGES);
+    setRoute("none");
+    setTraceId("none");
+    setCitations([]);
+    setToolResults([]);
+  }, []);
 
-  function handleSettingsChange(nextSettings: Settings) {
-    setSettings(nextSettings);
-    saveSettings(nextSettings);
+  function handleAuthenticated(nextToken: string) {
+    setToken(nextToken);
+    setTokenState(nextToken);
+  }
+
+  const refreshConversations = useCallback(async () => {
+    if (!token) return [] as ConversationSummary[];
+    const items = await listConversations(settings, token);
+    setConversations(items);
+    return items;
+  }, [settings, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const me = await fetchMe(settings, token);
+        if (cancelled) return;
+        setUser(me);
+        await refreshConversations();
+      } catch {
+        if (!cancelled) handleLogout();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, settings, refreshConversations, handleLogout]);
+
+  function resetInspector() {
+    setRoute("none");
+    setTraceId("none");
+    setCitations([]);
+    setToolResults([]);
+  }
+
+  function applyInspectorFromMessages(apiMessages: ApiMessage[]) {
+    const lastAssistant = [...apiMessages].reverse().find((m) => m.role === "assistant");
+    if (lastAssistant) {
+      setRoute(lastAssistant.route || "none");
+      setTraceId(lastAssistant.trace_id || "none");
+      setCitations(lastAssistant.citations || []);
+      setToolResults(lastAssistant.tool_results || []);
+    } else {
+      resetInspector();
+    }
+  }
+
+  function handleNewChat() {
+    setActiveConversationId(null);
+    setMessages(STARTER_MESSAGES);
+    resetInspector();
+  }
+
+  async function handleSelectConversation(id: string) {
+    if (!token) return;
+    try {
+      const detail = await getConversation(settings, token, id);
+      setActiveConversationId(detail.id);
+      setMessages(
+        detail.messages.length
+          ? detail.messages.map((message) => ({
+              id: message.id,
+              role: message.role === "assistant" ? "assistant" : "user",
+              content: message.content,
+            }))
+          : STARTER_MESSAGES,
+      );
+      applyInspectorFromMessages(detail.messages);
+    } catch (error) {
+      setMessages([
+        {
+          id: newId("assistant"),
+          role: "assistant",
+          content: error instanceof Error ? error.message : "Failed to load conversation.",
+        },
+      ]);
+    }
+  }
+
+  async function handleDeleteConversation(id: string) {
+    if (!token) return;
+    try {
+      await apiDeleteConversation(settings, token, id);
+      await refreshConversations();
+      if (id === activeConversationId) {
+        handleNewChat();
+      }
+    } catch {
+      // Keep current view; deletion failures are non-fatal for the UI.
+    }
   }
 
   async function handleSend(message: string) {
+    if (!token) return;
+
     const userMessage: ChatMessage = {
       id: newId("user"),
       role: "user",
@@ -55,7 +171,10 @@ export function App() {
       content: "",
     };
 
-    setMessages((current) => [...current, userMessage, assistantMessage]);
+    setMessages((current) => {
+      const base = current.length === 1 && current[0].id === "welcome" ? [] : current;
+      return [...base, userMessage, assistantMessage];
+    });
     setIsStreaming(true);
     setRoute("streaming");
     setTraceId("pending");
@@ -63,7 +182,7 @@ export function App() {
     setToolResults([]);
 
     try {
-      await streamChat(settings, message, apiHistory, (event) => {
+      await streamChat(settings, token, activeConversationId, message, (event) => {
         if (event.type === "token") {
           setMessages((current) =>
             current.map((item) =>
@@ -79,6 +198,8 @@ export function App() {
         setTraceId(event.trace_id);
         setCitations(event.citations);
         setToolResults(event.tool_results || []);
+        setActiveConversationId(event.conversation_id);
+        void refreshConversations();
       });
     } catch (error) {
       setMessages((current) =>
@@ -93,9 +214,26 @@ export function App() {
     }
   }
 
+  if (!token) {
+    return (
+      <AuthScreen settings={settings} onAuthenticated={handleAuthenticated} />
+    );
+  }
+
   return (
     <main className="shell">
-      <Sidebar settings={settings} onSettingsChange={handleSettingsChange} onPrompt={handleSend} />
+      <Sidebar
+        settings={settings}
+        token={token}
+        user={user}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onNewChat={handleNewChat}
+        onSelectConversation={handleSelectConversation}
+        onDeleteConversation={handleDeleteConversation}
+        onPrompt={handleSend}
+        onLogout={handleLogout}
+      />
       <ChatConsole
         messages={messages}
         route={route}
@@ -106,4 +244,3 @@ export function App() {
     </main>
   );
 }
-

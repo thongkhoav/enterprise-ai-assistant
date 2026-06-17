@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from app.api.deps import get_vector_store, require_api_key
+from app.api.deps import get_current_user, get_vector_store
 from app.core.config import Settings, get_settings
 from app.schemas.documents import DocumentUploadResponse
 from app.services.chunking import chunk_text
 from app.services.document_loader import load_upload
 from app.services.vector_store import VectorStore
 
-router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/documents", tags=["documents"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)

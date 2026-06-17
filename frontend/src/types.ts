@@ -25,6 +25,7 @@ export type ToolResult = {
 
 export type DoneEvent = {
   type: "done";
+  conversation_id: string;
   citations: Citation[];
   tool_results: ToolResult[];
   trace_id: string;
@@ -40,8 +41,35 @@ export type StreamEvent = DoneEvent | TokenEvent;
 
 export type Settings = {
   apiBaseUrl: string;
-  apiKey: string;
-  sessionId: string;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  created_at: string;
+};
+
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApiMessage = {
+  id: string;
+  role: Role;
+  content: string;
+  route?: string | null;
+  trace_id?: string | null;
+  citations: Citation[];
+  tool_results: ToolResult[];
+  created_at: string;
+};
+
+export type ConversationDetail = ConversationSummary & {
+  messages: ApiMessage[];
 };
 
 export type UploadResponse = {

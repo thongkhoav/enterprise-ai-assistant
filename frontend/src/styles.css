@@ -337,6 +337,141 @@ dd {
   color: var(--red);
 }
 
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.icon-button {
+  min-height: 32px;
+  width: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--accent);
+  border: 1px solid var(--line);
+}
+
+.icon-button:not(:disabled):hover {
+  background: var(--blue-soft);
+}
+
+.icon-button.danger {
+  color: var(--red);
+  border-color: transparent;
+  background: transparent;
+}
+
+.icon-button.danger:not(:disabled):hover {
+  background: #fef2f2;
+}
+
+.conversation-list {
+  display: grid;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 2px 4px 2px 2px;
+}
+
+.conversation-item.active {
+  border-color: var(--accent);
+  background: var(--blue-soft);
+}
+
+.conversation-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 13px;
+  padding: 8px 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.conversation-item.active .conversation-title {
+  color: var(--accent-strong);
+}
+
+.conversation-title:not(:disabled):hover {
+  background: transparent;
+}
+
+button.logout {
+  width: 100%;
+  color: var(--red);
+  border-color: var(--line);
+}
+
+button.logout:not(:disabled):hover {
+  background: #fef2f2;
+}
+
+.auth-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.auth-card .brand {
+  margin-bottom: 4px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+button.link {
+  min-height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 750;
+}
+
+button.link:not(:disabled):hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }

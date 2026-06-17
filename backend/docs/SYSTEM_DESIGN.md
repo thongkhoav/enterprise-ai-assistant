@@ -21,14 +21,17 @@ flowchart LR
 
 ## Request Flow
 
-1. Client calls `/v1/chat` or `/v1/chat/stream`.
-2. `require_api_key` validates the bearer token.
-3. `AgentRunner` starts a LangGraph run with a fresh `trace_id` and `AgentState`.
-4. Router classifies the request as `rag`, `database`, or `ticket`.
-5. Retriever searches Chroma for relevant document chunks (runs for every route).
-6. Tool caller always runs `search_docs`, plus `query_fake_database` or `create_ticket` by route.
-7. Answer generator builds the final response (OpenAI with citation instructions, or a mock answer).
-8. Trace metadata is appended to `logs/traces.jsonl`.
+1. User authenticates via `/v1/auth/register` or `/v1/auth/login` and receives a JWT access token.
+2. Client calls `/v1/chat` or `/v1/chat/stream` with `Authorization: Bearer <jwt>`.
+3. `get_current_user` decodes the JWT and loads the user (`api/deps.py`).
+4. The request resolves or creates a `conversation` owned by the user and stores the user message.
+5. `AgentRunner` starts a LangGraph run with a fresh `trace_id` and `AgentState`.
+6. Router classifies the request as `rag`, `database`, or `ticket`.
+7. Retriever searches Chroma for relevant document chunks (runs for every route).
+8. Tool caller always runs `search_docs`, plus `query_fake_database` or `create_ticket` by route.
+9. Answer generator builds the final response (OpenAI with citation instructions, or a mock answer);
+   the assistant message is persisted to the conversation.
+10. Trace metadata is appended to `logs/traces.jsonl`.
 
 ## Techniques & Patterns
 

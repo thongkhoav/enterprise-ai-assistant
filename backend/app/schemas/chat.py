@@ -9,7 +9,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: str = "demo-session"
+    conversation_id: str | None = None
     message: str
     history: list[ChatMessage] = Field(default_factory=list)
 
@@ -27,7 +27,7 @@ class ToolResult(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    session_id: str
+    conversation_id: str
     answer: str
     route: str
     citations: list[Citation]

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import chat, documents, health, tickets
+from app.api.routes import auth, chat, conversations, documents, health, tickets
 from app.core.config import get_settings
 from app.db.database import create_db_and_tables
 
@@ -32,6 +32,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router, prefix="/v1")
+    app.include_router(conversations.router, prefix="/v1")
     app.include_router(chat.router, prefix="/v1")
     app.include_router(documents.router, prefix="/v1")
     app.include_router(tickets.router, prefix="/v1")

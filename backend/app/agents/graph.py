@@ -24,10 +24,10 @@ class AgentRunner:
         self.ticket_store = ticket_store
         self.graph = self._build_graph()
 
-    async def run(self, request: ChatRequest) -> dict[str, Any]:
+    async def run(self, request: ChatRequest, conversation_id: str) -> dict[str, Any]:
         trace_id = str(uuid4())
         initial: AgentState = {
-            "session_id": request.session_id,
+            "conversation_id": conversation_id,
             "question": request.message,
             "trace_id": trace_id,
             "documents": [],
@@ -43,7 +43,7 @@ class AgentRunner:
             self.settings,
             {
                 "trace_id": trace_id,
-                "session_id": request.session_id,
+                "conversation_id": conversation_id,
                 "route": result.get("route", "rag"),
                 "question": request.message,
                 "answer_chars": len(answer),
@@ -58,7 +58,7 @@ class AgentRunner:
         )
 
         return {
-            "session_id": request.session_id,
+            "conversation_id": conversation_id,
             "answer": answer,
             "route": result.get("route", "rag"),
             "citations": citations,

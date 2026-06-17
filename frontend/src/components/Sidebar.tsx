@@ -1,20 +1,28 @@
 import {
-  Activity,
   Database,
   FileText,
-  Save,
+  LogOut,
+  MessageSquarePlus,
   TicketCheck,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
 import { useState } from "react";
 
-import { checkHealth, uploadDocument } from "../api/client";
-import type { Settings } from "../types";
+import { uploadDocument } from "../api/client";
+import type { AuthUser, ConversationSummary, Settings } from "../types";
 
 type SidebarProps = {
   settings: Settings;
-  onSettingsChange: (settings: Settings) => void;
+  token: string;
+  user: AuthUser | null;
+  conversations: ConversationSummary[];
+  activeConversationId: string | null;
+  onNewChat: () => void;
+  onSelectConversation: (id: string) => void;
+  onDeleteConversation: (id: string) => void;
   onPrompt: (prompt: string) => void;
+  onLogout: () => void;
 };
 
 const PROMPTS = [
@@ -32,31 +40,24 @@ const PROMPTS = [
   },
 ];
 
-export function Sidebar({ settings, onSettingsChange, onPrompt }: SidebarProps) {
-  const [draft, setDraft] = useState(settings);
+export function Sidebar({
+  settings,
+  token,
+  user,
+  conversations,
+  activeConversationId,
+  onNewChat,
+  onSelectConversation,
+  onDeleteConversation,
+  onPrompt,
+  onLogout,
+}: SidebarProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sourceLabel, setSourceLabel] = useState("");
-  const [connectionStatus, setConnectionStatus] = useState<StatusState>({
-    text: "Not checked.",
-    type: "muted",
-  });
   const [uploadStatus, setUploadStatus] = useState<StatusState>({
     text: "No document selected.",
     type: "muted",
   });
-
-  async function handleHealthCheck() {
-    setConnectionStatus({ text: "Checking...", type: "warn" });
-    try {
-      const status = await checkHealth(draft);
-      setConnectionStatus({ text: `Backend: ${status}`, type: "ok" });
-    } catch (error) {
-      setConnectionStatus({
-        text: error instanceof Error ? error.message : "Health check failed.",
-        type: "error",
-      });
-    }
-  }
 
   async function handleUpload() {
     if (!file) {
@@ -66,7 +67,7 @@ export function Sidebar({ settings, onSettingsChange, onPrompt }: SidebarProps) 
 
     setUploadStatus({ text: "Indexing...", type: "warn" });
     try {
-      const response = await uploadDocument(draft, file, sourceLabel.trim());
+      const response = await uploadDocument(settings, token, file, sourceLabel.trim());
       setUploadStatus({
         text: `${response.chunks_indexed} chunks indexed from ${response.source}.`,
         type: "ok",
@@ -80,52 +81,50 @@ export function Sidebar({ settings, onSettingsChange, onPrompt }: SidebarProps) 
   }
 
   return (
-    <aside className="sidebar" aria-label="Settings">
+    <aside className="sidebar" aria-label="Navigation">
       <div className="brand">
         <div className="brand-mark">AI</div>
         <div>
           <h1>Enterprise AI Assistant</h1>
-          <p>Operator console</p>
+          <p>{user?.email || "Operator console"}</p>
         </div>
       </div>
 
       <section className="panel">
-        <h2>Connection</h2>
-        <label>
-          API base URL
-          <input
-            value={draft.apiBaseUrl}
-            onChange={(event) =>
-              setDraft({ ...draft, apiBaseUrl: event.target.value.replace(/\/$/, "") })
-            }
-          />
-        </label>
-        <label>
-          API key
-          <input
-            type="password"
-            value={draft.apiKey}
-            onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
-          />
-        </label>
-        <label>
-          Session
-          <input
-            value={draft.sessionId}
-            onChange={(event) => setDraft({ ...draft, sessionId: event.target.value })}
-          />
-        </label>
-        <div className="actions">
-          <button type="button" onClick={() => onSettingsChange(draft)}>
-            <Save size={17} />
-            Save
-          </button>
-          <button type="button" className="secondary" onClick={handleHealthCheck}>
-            <Activity size={17} />
-            Health
+        <div className="panel-head">
+          <h2>Conversations</h2>
+          <button type="button" className="icon-button" onClick={onNewChat} title="New chat">
+            <MessageSquarePlus size={17} />
           </button>
         </div>
-        <Status state={connectionStatus} />
+        <div className={conversations.length ? "conversation-list" : "empty"}>
+          {conversations.length
+            ? conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={`conversation-item ${
+                    conversation.id === activeConversationId ? "active" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="conversation-title"
+                    onClick={() => onSelectConversation(conversation.id)}
+                  >
+                    {conversation.title}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button danger"
+                    title="Delete conversation"
+                    onClick={() => onDeleteConversation(conversation.id)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))
+            : "No conversations yet."}
+        </div>
       </section>
 
       <section className="panel">
@@ -170,6 +169,11 @@ export function Sidebar({ settings, onSettingsChange, onPrompt }: SidebarProps) 
           );
         })}
       </section>
+
+      <button type="button" className="secondary logout" onClick={onLogout}>
+        <LogOut size={17} />
+        Sign out
+      </button>
     </aside>
   );
 }
@@ -182,4 +186,3 @@ type StatusState = {
 function Status({ state }: { state: StatusState }) {
   return <p className={`status ${state.type}`}>{state.text}</p>;
 }
-
