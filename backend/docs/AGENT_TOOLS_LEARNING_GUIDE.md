@@ -17,21 +17,28 @@ backend/
 │   │   ├── state.py             # AgentState TypedDict that travels through every node
 │   │   └── tools.py             # Three async tool functions called by _tool_caller
 │   ├── api/
-│   │   ├── deps.py              # Dependency injection: services wired with lru_cache
+│   │   ├── deps.py              # Dependency injection: JWT auth + services wired with lru_cache
 │   │   └── routes/
+│   │       ├── auth.py          # POST /v1/auth/register, /login; GET /v1/auth/me
 │   │       ├── chat.py          # POST /v1/chat and POST /v1/chat/stream (SSE)
+│   │       ├── conversations.py # CRUD for user-owned conversations + messages
 │   │       ├── documents.py     # POST /v1/documents/upload
 │   │       ├── tickets.py       # GET /v1/tickets and GET /v1/tickets/{id} (SessionDep)
 │   │       └── health.py        # GET /health
 │   ├── core/
-│   │   └── config.py            # Settings (pydantic-settings, reads .env)
+│   │   ├── config.py            # Settings (pydantic-settings, reads .env)
+│   │   └── security.py          # bcrypt password hashing + JWT create/decode
 │   ├── db/
 │   │   ├── database.py          # SQLModel async engine, get_session dependency, SessionDep
-│   │   ├── models.py            # SQLModel models: TicketBase / Ticket (table) / TicketPublic
+│   │   ├── models.py            # SQLModel: User, Conversation, Message, Ticket
+│   │   ├── users.py             # User repo helpers
+│   │   ├── conversations.py     # Conversation + message repo helpers
 │   │   ├── fake_database.py     # In-memory fake business metrics
 │   │   └── tickets.py           # Ticket repo helpers + TicketStore (SQLModel ORM)
 │   ├── schemas/
+│   │   ├── auth.py              # RegisterRequest, LoginRequest, TokenResponse, UserPublic
 │   │   ├── chat.py              # ChatRequest, ChatResponse, Citation, ToolResult
+│   │   ├── conversation.py      # ConversationSummary, ConversationDetail, MessagePublic
 │   │   └── documents.py         # DocumentUploadResponse
 │   ├── services/
 │   │   ├── chunking.py          # Text → TextChunk list with overlap
@@ -62,19 +69,24 @@ create_app()
 ├── reads Settings via get_settings()
 ├── registers the lifespan handler (calls create_db_and_tables() on startup)
 ├── adds CORS middleware (cors_origins from .env)
-└── mounts four routers:
+└── mounts six routers:
     ├── health.router          (no prefix)
+    ├── auth.router            (prefix: /v1)
+    ├── conversations.router   (prefix: /v1)
     ├── chat.router            (prefix: /v1)
     ├── documents.router       (prefix: /v1)
     └── tickets.router         (prefix: /v1)
 ```
 
 On startup the lifespan handler runs `create_db_and_tables()`, which issues
-`SQLModel.metadata.create_all` against Postgres (creates the `tickets` table if it does not exist).
+`SQLModel.metadata.create_all` against Postgres (creates `users`, `conversations`, `messages`,
+and `tickets` tables if they do not exist).
 Note this is a demo bootstrap, not a migration tool — it never alters an existing table.
 
-All chat, document, and ticket routes require an `Authorization: Bearer <app_api_key>` header,
-checked in `api/deps.py :: require_api_key`. The default dev key is `dev-secret`.
+Protected routes (chat, conversations, documents, tickets) require a JWT in the
+`Authorization: Bearer <access_token>` header. The token is obtained from
+`POST /v1/auth/register` or `POST /v1/auth/login`. `api/deps.py :: get_current_user` decodes the
+JWT, loads the user from Postgres, and rejects missing or invalid tokens with `401`.
 
 Services are constructed once per process using `lru_cache` in `api/deps.py`:
 
@@ -103,7 +115,9 @@ All settings live in `app/core/config.py` and are read from `.env`:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `APP_API_KEY` | `dev-secret` | Bearer token required by all API endpoints |
+| `JWT_SECRET` | (dev default in `.env.example`) | HMAC secret for signing access tokens |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Access token lifetime (24 hours) |
 | `OPENAI_API_KEY` | (none) | Enables real OpenAI LLM and embedding calls |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Chat completion model when key is set |
 | `EMBEDDING_PROVIDER` | `hash` | `hash` / `local` / `openai` / `auto` |
@@ -164,7 +178,7 @@ moment during the graph run:
 
 ```python
 class AgentState(TypedDict, total=False):
-    session_id: str           # echoed back in the response
+    conversation_id: str      # conversation this turn belongs to
     question: str             # the user's original chat message
     route: str                # set by _router: "rag" | "database" | "ticket"
     documents: list[dict]     # set by _retriever: chunks from ChromaDB
@@ -185,9 +199,12 @@ The full request path from HTTP to response:
 ```
 POST /v1/chat  (or /v1/chat/stream)
     │
-    ├── require_api_key         checks Authorization: Bearer header
+    ├── get_current_user        decodes JWT, loads User from Postgres
     │
-    └── AgentRunner.run(request)
+    ├── resolve conversation    uses conversation_id from request, or creates a new one
+    ├── persist user message    writes Message(role="user") to Postgres
+    │
+    └── AgentRunner.run(request, conversation_id)
             │
             ├── creates AgentState with a fresh trace_id (UUID)
             │
@@ -203,7 +220,9 @@ POST /v1/chat  (or /v1/chat/stream)
             │
             ├── write_trace(...)       → appends one record to logs/traces.jsonl
             │
-            └── returns ChatResponse {session_id, answer, route, citations,
+            ├── persist assistant message (role, answer, route, trace_id, citations, tool_results)
+            │
+            └── returns ChatResponse {conversation_id, answer, route, citations,
                                       tool_results, trace_id}
 ```
 
@@ -546,7 +565,7 @@ event: token
 data: {"type": "token", "text": "world "}
 
 event: done
-data: {"type": "done", "citations": [...], "tool_results": [...], "trace_id": "...", "route": "rag"}
+data: {"type": "done", "conversation_id": "...", "citations": [...], "tool_results": [...], "trace_id": "...", "route": "rag"}
 ```
 
 This is simulated streaming, not true token-level streaming from the LLM. For real streaming,
@@ -564,7 +583,7 @@ one JSON record per request to `logs/traces.jsonl`:
 {
     "timestamp": "2026-06-12T07:00:00+00:00",
     "trace_id": "...",
-    "session_id": "demo",
+    "conversation_id": "...",
     "route": "rag",
     "question": "What is the refund SLA?",
     "answer_chars": 312,
@@ -587,14 +606,32 @@ or a cloud logging platform.
 
 | Class | Direction | Key fields |
 |---|---|---|
-| `ChatRequest` | request body | `session_id`, `message`, `history` |
-| `ChatResponse` | response body | `session_id`, `answer`, `route`, `citations`, `tool_results`, `trace_id` |
+| `ChatRequest` | request body | `conversation_id` (optional), `message`, `history` |
+| `ChatResponse` | response body | `conversation_id`, `answer`, `route`, `citations`, `tool_results`, `trace_id` |
 | `Citation` | inside `ChatResponse` | `source`, `chunk_id`, `score`, `page` |
 | `ToolResult` | inside `ChatResponse` | `name`, `result` |
 | `ChatMessage` | inside `ChatRequest.history` | `role` (user/assistant/system), `content` |
 
-Note: `history` is accepted in `ChatRequest` but not yet consumed by the agent. It is a
-placeholder for adding multi-turn memory.
+Note: `history` is accepted in `ChatRequest` but not yet consumed by the agent graph. Multi-turn
+context is persisted via `Conversation` / `Message` records and loaded through
+`GET /v1/conversations/{id}`; wiring prior messages into the LLM prompt is still a follow-up.
+
+### `schemas/auth.py`
+
+| Class | Direction | Key fields |
+|---|---|---|
+| `RegisterRequest` | request body | `email`, `password`, `full_name` (optional) |
+| `LoginRequest` | request body | `email`, `password` |
+| `TokenResponse` | response body | `access_token`, `token_type` |
+| `UserPublic` | response body | `id`, `email`, `full_name`, `created_at` |
+
+### `schemas/conversation.py`
+
+| Class | Direction | Key fields |
+|---|---|---|
+| `ConversationSummary` | list item | `id`, `title`, `created_at`, `updated_at` |
+| `ConversationDetail` | response body | summary fields + `messages` |
+| `MessagePublic` | inside detail | `id`, `role`, `content`, `route`, `trace_id`, `citations`, `tool_results` |
 
 ### `schemas/documents.py`
 
@@ -606,6 +643,9 @@ placeholder for adding multi-turn memory.
 
 | Class | Role | Key fields |
 |---|---|---|
+| `User` | table model | `id`, `email`, `hashed_password`, `full_name`, `created_at` |
+| `Conversation` | table model | `id`, `user_id`, `title`, `created_at`, `updated_at` |
+| `Message` | table model | `id`, `conversation_id`, `role`, `content`, `route`, `trace_id`, `citations`, `tool_results` |
 | `TicketBase` | shared base (not a table) | `title`, `description`, `priority` |
 | `Ticket` | table model (`table=True`) | adds `id`, `status`, `created_at` |
 | `TicketPublic` | response model for `GET /v1/tickets` | `id`, `title`, `description`, `priority`, `status`, `created_at` |
@@ -617,11 +657,11 @@ placeholder for adding multi-turn memory.
 - Tool routing is keyword-based and can misclassify ambiguous requests.
 - `search_docs_tool` summarizes retrieval results but does not enforce evidence quality.
 - `query_database_tool` uses a fake in-memory database.
-- `create_ticket_tool` has no auth check, tenant ID, workspace ID, or duplicate prevention.
+- `create_ticket_tool` does not yet enforce per-user permissions, tenant/workspace scope, or duplicate prevention (JWT protects the API, but the tool itself is not user-scoped).
 - Ticket priority extraction is basic keyword matching.
 - Tool output is passed to the model as raw dictionary text instead of a stricter schema.
 - `POST /v1/chat/stream` simulates streaming by splitting the completed answer word-by-word.
-- `ChatRequest.history` is accepted but not used by the agent (no multi-turn memory yet).
+- `ChatRequest.history` is accepted but not used by the agent graph; prior turns are stored in Postgres but not yet injected into the LLM prompt.
 - Token and cost estimates in traces are approximations (`len(text) // 4`).
 
 ---
@@ -630,7 +670,7 @@ placeholder for adding multi-turn memory.
 
 When moving this code toward production:
 
-- Add an authenticated request context to every tool call.
+- Pass authenticated user/tenant context into every tool call (JWT protects routes; tools still need scoped data access).
 - Make side-effect tools check user permissions before writing data.
 - Replace `fake_database.py` with a real data-access layer.
 - Add tenant and workspace filters to database and retrieval tools.
@@ -639,7 +679,7 @@ When moving this code toward production:
 - Log tool success/failure metadata without logging sensitive user content.
 - Replace `write_trace` with a structured observability platform.
 - Implement real token streaming in `RAGService.answer`.
-- Wire `ChatRequest.history` into the model context for multi-turn conversations.
+- Inject stored conversation messages into the LLM prompt for true multi-turn answers.
 
 ---
 
