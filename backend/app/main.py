@@ -3,14 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.deps import get_vector_store
 from app.api.routes import auth, chat, conversations, documents, health, tickets
 from app.core.config import get_settings
 from app.db.database import create_db_and_tables
+from app.services.seed import seed_documents
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
+    vector_store = get_vector_store()
+    # Load the embedding model now so the first question does not pay for it.
+    await vector_store.embeddings.embed_texts(["warmup"])
+    if get_settings().seed_on_startup and vector_store.collection.count() == 0:
+        await seed_documents(get_settings(), vector_store)
     yield
 
 

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     openai_model: str | None = None
+    # Any OpenAI-compatible endpoint (OpenRouter, Groq, Together, ...). Empty = api.openai.com.
+    openai_base_url: str | None = None
     embedding_provider: Literal["auto", "openai", "local", "hash"] = "hash"
     openai_embedding_model: str = "text-embedding-3-small"
     local_embedding_model: str = "BAAI/bge-small-en-v1.5"
@@ -32,6 +34,13 @@ class Settings(BaseSettings):
     trace_log_path: Path = Path("logs/traces.jsonl")
 
     rag_top_k: int = 5
+    # Chunks scoring below this cosine similarity are ignored. When nothing clears it, the
+    # assistant answers "I don't know" instead of guessing. Unset = a per-provider default
+    # (see `DEFAULT_MIN_SCORE` in app/services/rag.py).
+    rag_min_score: float | None = None
+    # Index the bundled sample docs at startup when the index is empty (handy on hosts with
+    # ephemeral disks, so a fresh deploy is never an empty demo).
+    seed_on_startup: bool = False
     chunk_size: int = 900
     chunk_overlap: int = 120
     rough_cost_per_1k_tokens_usd: float = 0.002

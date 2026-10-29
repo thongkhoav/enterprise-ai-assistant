@@ -15,10 +15,13 @@ class ChatRequest(BaseModel):
 
 
 class Citation(BaseModel):
+    n: int | None = None
     source: str
+    document_id: str | None = None
     chunk_id: str
     score: float | None = None
     page: int | None = None
+    text: str | None = None
 
 
 class ToolResult(BaseModel):
@@ -33,3 +36,5 @@ class ChatResponse(BaseModel):
     citations: list[Citation]
     tool_results: list[ToolResult]
     trace_id: str
+    latency_ms: int | None = None
+    answer_mode: str | None = None
