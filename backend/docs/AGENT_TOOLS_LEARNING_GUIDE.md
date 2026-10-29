@@ -119,7 +119,7 @@ All settings live in `app/core/config.py` and are read from `.env`:
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Access token lifetime (24 hours) |
 | `OPENAI_API_KEY` | (none) | Enables real OpenAI LLM and embedding calls |
-| `OPENAI_MODEL` | `gpt-4.1-mini` | Chat completion model when key is set |
+| `OPENAI_MODEL` | `gpt-4.1` | Chat completion model when key is set |
 | `EMBEDDING_PROVIDER` | `hash` | `hash` / `local` / `openai` / `auto` |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Used when provider is `openai` |
 | `LOCAL_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Used when provider is `local` |

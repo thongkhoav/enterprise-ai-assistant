@@ -1,15 +1,22 @@
 """Keyword router that picks one of the agent routes: rag, database, or ticket."""
 
+import re
+
 TICKET_ACTION_WORDS = ("create", "open", "file", "raise", "log")
 TICKET_OBJECT_WORDS = ("ticket", "task", "issue", "bug", "incident")
 # "When should a failed import create a ticket?" asks about the process; it is not a request.
 QUESTION_STARTS = ("what", "when", "how", "why", "which", "who", "should", "does", "do ", "is ")
 
 # Words that only make sense as a live metric lookup.
-METRIC_WORDS = ("database", "revenue", "mrr", "churn", "employee", "headcount", "breach")
+METRIC_WORDS = (
+    "database", "revenue", "mrr", "churn", "headcount", "breach",
+    "nps", "net promoter", "pipeline", "win rate", "open deals", "mttr",
+)  # fmt: skip
+# Uptime is a commitment in the contract and a live metric; only "current" uptime is live.
+LIVE_UPTIME_PHRASES = ("current uptime", "uptime this month", "uptime last", "actual uptime")
 # SLA questions are metrics only when they ask for a number, not for the written policy.
 SLA_METRIC_PHRASES = ("response time", "status", "p95", "how many")
-COUNT_SUBJECTS = ("customer", "employee", "sla")
+COUNT_QUESTION = re.compile(r"how many (?:[\w-]+ )?(?:customer|employee|engineer|sla)")
 
 
 def classify_route(question: str) -> str:
@@ -34,6 +41,10 @@ def is_database_intent(text: str) -> bool:
         return False
     if any(word in text for word in METRIC_WORDS):
         return True
+    if any(phrase in text for phrase in LIVE_UPTIME_PHRASES):
+        return True
     if "sla" in text and any(phrase in text for phrase in SLA_METRIC_PHRASES):
         return True
-    return "how many" in text and any(subject in text for subject in COUNT_SUBJECTS)
+    # "How many enterprise customers ..." counts customers; "How many PTO days do employees
+    # get?" counts days, so the subject has to follow "how many" directly.
+    return COUNT_QUESTION.search(text) is not None

@@ -24,7 +24,7 @@
 {"question":"Which customers can use enterprise support?","expected_route":"rag","answer_keywords":["customer"]}
 {"question":"Query database for customer totals.","expected_route":"database","answer_keywords":["customer"]}
 {"question":"Query database for employee distribution.","expected_route":"database","answer_keywords":["employee"]}
-{"question":"Report database SLA status.","expected_route":"database","answer_keywords":["sla"]}
+{"question":"Report database SLA status.","expected_route":"database","answer_keywords":["42"]}
 {"question":"Create a task to investigate refund delay.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"Create an issue for upload portal timeout.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"What is the max file size before using secure import portal?","expected_route":"rag","answer_keywords":["100"]}
@@ -45,3 +45,13 @@
 {"question":"How is import success rate defined?","expected_route":"rag","answer_keywords":["import"]}
 {"question":"What metrics are used for product reliability?","expected_route":"rag","answer_keywords":["reliability"]}
 {"question":"Create a ticket for suspicious production access.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"What service credit applies if monthly uptime is 98.5%?","expected_route":"rag","answer_keywords":["25"]}
+{"question":"What uptime does the Strategic plan guarantee?","expected_route":"rag","answer_keywords":["99.95"]}
+{"question":"How much notice is needed to stop the subscription from renewing?","expected_route":"rag","answer_keywords":["60 days"]}
+{"question":"How many PTO days do new employees get?","expected_route":"rag","answer_keywords":["20 days"]}
+{"question":"What is the hotel limit in London?","expected_route":"rag","answer_keywords":["400"]}
+{"question":"How much does the Premium plan cost?","expected_route":"rag","answer_keywords":["79"]}
+{"question":"When will API v1 be shut down?","expected_route":"rag","answer_keywords":["march 31, 2027"]}
+{"question":"What is our current uptime?","expected_route":"database","answer_keywords":["99.96"]}
+{"question":"What is our NPS?","expected_route":"database","answer_keywords":["47"]}
+{"question":"How is the sales pipeline looking?","expected_route":"database","answer_keywords":["63"]}

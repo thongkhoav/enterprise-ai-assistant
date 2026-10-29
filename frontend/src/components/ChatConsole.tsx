@@ -514,7 +514,7 @@ function fieldLabel(key: string): string {
     .replace(/_pct$/, " (%)")
     .replace(/_7d$/, " (7 days)")
     .replace(/_/g, " ")
-    .replace(/\b(mrr|sla|p95)\b/g, (word) => word.toUpperCase());
+    .replace(/\b(mrr|sla|p95|nps|mttr)\b/g, (word) => word.toUpperCase());
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 

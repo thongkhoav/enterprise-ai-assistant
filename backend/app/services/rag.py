@@ -9,9 +9,19 @@ from app.services.vector_store import VectorStore
 
 NO_ANSWER = "I don't know. The indexed documents don't cover that question."
 
+# gpt-4.1-mini misread banded rules (e.g. which service-credit tier 98.5% uptime falls in)
+# in 5 of 6 runs on the seed contract; gpt-4.1 got all 6 right at a few tenths of a cent more.
+DEFAULT_MODEL = "gpt-4.1"
+
 # Minimum cosine similarity for a chunk to count as evidence, per embedding provider.
 # bge-small scores unrelated text around 0.45-0.55; hash vectors only overlap on shared words.
+# The extractive answer quotes whatever clears the bar, so offline mode needs a strict one.
 DEFAULT_MIN_SCORE = {"local": 0.62, "openai": 0.35, "hash": 0.12}
+# With a model, the bar only has to reject clearly off-topic questions: the model reads the
+# near misses and replies NO_ANSWER itself when they do not answer the question. On the seed
+# docs, "hotel limit in London?" (answered on handbook p.3) scores 0.60 while "parental
+# leave policy?" (not covered) scores 0.59, so no single strict bar separates them.
+LLM_MIN_SCORE = {"local": 0.55, "openai": 0.3, "hash": 0.1}
 
 SYSTEM_PROMPT = f"""You answer questions using only the numbered sources below.
 
@@ -43,15 +53,16 @@ class RAGService:
     def __init__(self, settings: Settings, vector_store: VectorStore) -> None:
         self.settings = settings
         self.vector_store = vector_store
-        self.min_score = (
-            settings.rag_min_score
-            if settings.rag_min_score is not None
-            else DEFAULT_MIN_SCORE.get(vector_store.embeddings.provider, 0.3)
-        )
         self._client = (
             AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
             if settings.openai_api_key
             else None
+        )
+        defaults = LLM_MIN_SCORE if self._client else DEFAULT_MIN_SCORE
+        self.min_score = (
+            settings.rag_min_score
+            if settings.rag_min_score is not None
+            else defaults.get(vector_store.embeddings.provider, 0.3)
         )
 
     @property
@@ -82,7 +93,7 @@ class RAGService:
             return
 
         stream = await self._client.chat.completions.create(
-            model=self.settings.openai_model or "gpt-4.1-mini",
+            model=self.settings.openai_model or DEFAULT_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {

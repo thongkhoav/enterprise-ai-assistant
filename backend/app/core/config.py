@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     # Chunks scoring below this cosine similarity are ignored. When nothing clears it, the
     # assistant answers "I don't know" instead of guessing. Unset = a per-provider default
-    # (see `DEFAULT_MIN_SCORE` in app/services/rag.py).
+    # (see `DEFAULT_MIN_SCORE` and `LLM_MIN_SCORE` in app/services/rag.py).
     rag_min_score: float | None = None
     # Index the bundled sample docs at startup when the index is empty (handy on hosts with
     # ephemeral disks, so a fresh deploy is never an empty demo).

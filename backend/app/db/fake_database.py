@@ -21,19 +21,42 @@ FAKE_DATABASE = {
         "breached_tickets_7d": 6,
         "target_minutes": 60,
     },
+    "uptime": {
+        "uptime_30d_pct": 99.96,
+        "incidents_30d": 3,
+        "mttr_minutes": 38,
+    },
+    "nps": {
+        "nps_score": 47,
+        "promoters_pct": 58,
+        "detractors_pct": 11,
+        "responses_90d": 1284,
+    },
+    "pipeline": {
+        "open_deals": 63,
+        "pipeline_value_usd": 3150000,
+        "win_rate_pct": 27,
+        "avg_sales_cycle_days": 48,
+    },
 }
+
+# First match wins, so the more specific tables come before the broad "support" -> sla rule.
+TABLE_KEYWORDS = (
+    ("revenue", ("revenue", "mrr")),
+    ("employees", ("employee", "engineering", "headcount")),
+    ("uptime", ("uptime", "availability", "mttr")),
+    ("nps", ("nps", "net promoter", "satisfaction")),
+    ("pipeline", ("pipeline", "win rate", "open deals", "sales cycle")),
+    ("sla", ("sla", "support")),
+)
 
 
 def query_fake_database(question: str) -> dict:
     normalized = question.lower()
-    if "revenue" in normalized or "mrr" in normalized:
-        table = "revenue"
-    elif "employee" in normalized or "engineering" in normalized:
-        table = "employees"
-    elif "sla" in normalized or "support" in normalized:
-        table = "sla"
-    else:
-        table = "customers"
+    table = next(
+        (name for name, words in TABLE_KEYWORDS if any(word in normalized for word in words)),
+        "customers",
+    )
 
     return {
         "table": table,

@@ -8,7 +8,9 @@ from app.services.vector_store import VectorStore
 
 SEED_PATHS = [
     Path("docs/sample_policy.md"),
-    *sorted(Path("docs/seed").glob("*.md")),
+    *sorted(
+        path for path in Path("docs/seed").iterdir() if path.suffix in {".md", ".pdf", ".docx"}
+    ),
 ]
 
 

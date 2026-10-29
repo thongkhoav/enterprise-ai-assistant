@@ -67,7 +67,7 @@ uv sync --extra dev --extra local-embeddings
 `EMBEDDING_PROVIDER=hash` needs no download but is not semantic; use it only for tests. Each
 provider gets its own Chroma collection, so re-run `make seed` after switching.
 
-Answers: set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4.1-mini`) for
+Answers: set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4.1`) for
 generated answers. Any OpenAI-compatible API works through `OPENAI_BASE_URL` (OpenRouter, Groq,
 Together, a local server). Without a key the app still runs in an offline extractive mode that
 quotes the best-matching source sentences.
@@ -76,22 +76,40 @@ Relevance: `RAG_MIN_SCORE` overrides the "I don't know" threshold (default 0.62 
 `SEED_ON_STARTUP=true` indexes the bundled sample docs when the index is empty, which keeps a fresh
 deploy from starting with no documents.
 
+## Sample Data
+
+`make seed` indexes 11 documents for a fictional SaaS company, Acme: a 5-page master service
+agreement and a 5-page employee handbook (PDF, so answers cite page numbers), a pricing sheet
+(DOCX), release notes and six support runbooks (Markdown). The database tool serves live-looking
+metrics: revenue, customers, employees, SLA, uptime, NPS and sales pipeline.
+
+`backend/docs/demo_upload/acme_security_whitepaper.pdf` is deliberately not seeded. Ask
+`What is the RTO and RPO?` first ("I don't know"), drop the PDF onto the chat, then ask again.
+
+The PDF and DOCX files are generated from `backend/scripts/build_seed_files.py`
+(`uv run --with reportlab python scripts/build_seed_files.py`).
+
 ## First Demo Flow
 
 1. Start Postgres (`docker compose up -d db` in `backend/`), the backend and the frontend.
 2. Run `make seed` in `backend/`, or drop files onto the chat.
-3. Click "Try the demo", then ask: `What is the refund SLA policy?` and click a `[1]` citation.
+3. Click "Try the demo", then ask: `What service credit do we get if monthly uptime drops to 98.5%?`
+   and click the `[1]` citation (contract PDF, page 3).
 4. Ask something the docs do not cover: `What is our parental leave policy?` ("I don't know").
-5. Ask: `What is current MRR revenue?` (database tool).
+5. Ask: `What is our current MRR?` (database tool, shown as a Live data card).
 6. Ask: `Create a high priority ticket for a failed enterprise import.` (ticket tool).
 
-More seed questions to try:
+More questions to try:
 
+- `What is the hotel limit in London?`
+- `How much notice is needed to stop the subscription from renewing?`
+- `Do we offer a discount for nonprofits?`
+- `What uptime does the Strategic plan guarantee, and what is our current uptime?`
 - `What approvals are needed for production data access?`
-- `What should be included in a failed import ticket?`
-- `How should customer-facing incident updates be written?`
-- `When does a renewal become high risk?`
 - `What is the difference between a credit and a refund?`
+
+`uv run python scripts/run_eval.py` replays the 57 questions in `backend/evals/questions.jsonl`
+against a running backend and reports route and answer-keyword accuracy.
 
 ## Docker Compose
 
@@ -111,4 +129,3 @@ Then open:
 - Replace fake database with Postgres.
 - Add a real ticketing integration.
 - Add LangSmith or OpenTelemetry tracing.
-- Expand `backend/evals/questions.jsonl` to 50+ business cases.
