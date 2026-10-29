@@ -12,12 +12,13 @@ import {
   ShieldQuestion,
   Sparkles,
   TicketCheck,
+  TriangleAlert,
   UploadCloud,
 } from "lucide-react";
 import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
 
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
-import type { ChatMessage, Citation } from "../types";
+import type { ChatMessage, Citation, ToolResult } from "../types";
 
 type ChatConsoleProps = {
   title: string;
@@ -49,7 +50,7 @@ const SUGGESTIONS = [
     icon: Database,
     kind: "Live data tool",
     tone: "green",
-    text: "What is current MRR revenue?",
+    text: "What is our current MRR?",
   },
   {
     icon: TicketCheck,
@@ -275,7 +276,9 @@ function AssistantMessage({
   const [copied, setCopied] = useState(false);
   const citations = message.citations || [];
   const noAnswer = message.route === "no_answer";
+  const failed = message.route === "error";
   const isDone = message.route !== undefined;
+  const liveData = message.route === "database" ? databaseResult(message.toolResults) : null;
 
   if (!message.content) {
     return (
@@ -302,10 +305,15 @@ function AssistantMessage({
 
   return (
     <div className="answer">
-      <div className={`answer-body ${noAnswer ? "no-answer" : ""}`}>
+      <div className={`answer-body ${noAnswer ? "no-answer" : ""} ${failed ? "failed" : ""}`}>
         {noAnswer && (
           <span className="no-answer-label">
             <CircleHelp size={15} /> Not found in the documents
+          </span>
+        )}
+        {failed && (
+          <span className="no-answer-label">
+            <TriangleAlert size={15} /> Something went wrong
           </span>
         )}
         <AnswerText
@@ -338,7 +346,9 @@ function AssistantMessage({
         </div>
       )}
 
-      {isDone && (
+      {liveData && <DataCard data={liveData} />}
+
+      {isDone && !failed && (
         <div className="answer-meta">
           <button type="button" className="meta-button" onClick={copy}>
             {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -353,6 +363,7 @@ function AssistantMessage({
             </span>
           )}
           {message.answerMode === "extractive" && <span>offline extractive mode</span>}
+          {message.answerMode === "fallback" && <span>LLM unavailable, quoted from the sources</span>}
         </div>
       )}
     </div>
@@ -451,6 +462,60 @@ function SourceCard({
       )}
     </button>
   );
+}
+
+type DatabaseResult = {
+  table: string;
+  rows: Record<string, unknown>;
+  queried_at?: string;
+};
+
+function databaseResult(toolResults: ToolResult[] | undefined): DatabaseResult | null {
+  const result = toolResults?.find((item) => item.name === "query_fake_database")?.result;
+  return result && typeof result.table === "string" && result.rows
+    ? (result as unknown as DatabaseResult)
+    : null;
+}
+
+/** The rows the metrics tool returned, so a [data] citation can be checked like a source. */
+function DataCard({ data }: { data: DatabaseResult }) {
+  const queriedAt = data.queried_at ? new Date(data.queried_at) : null;
+  return (
+    <div className="sources">
+      <p className="sources-label">Live data</p>
+      <div className="data-card">
+        <span className="source-head">
+          <span className="source-n data">
+            <Database size={12} />
+          </span>
+          <strong>{data.table}</strong>
+          {queriedAt && (
+            <span className="source-tag">
+              queried {queriedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </span>
+        <dl className="data-rows">
+          {Object.entries(data.rows).map(([key, value]) => (
+            <div key={key}>
+              <dt>{fieldLabel(key)}</dt>
+              <dd>{typeof value === "number" ? value.toLocaleString() : String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function fieldLabel(key: string): string {
+  const label = key
+    .replace(/_usd$/, " (USD)")
+    .replace(/_pct$/, " (%)")
+    .replace(/_7d$/, " (7 days)")
+    .replace(/_/g, " ")
+    .replace(/\b(mrr|sla|p95)\b/g, (word) => word.toUpperCase());
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 const STOPWORDS = new Set([

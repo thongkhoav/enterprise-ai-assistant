@@ -77,7 +77,7 @@ class RAGService:
         extractive answer built from the best-matching source sentences so the demo runs offline.
         """
         if not self._client:
-            async for delta in _typewriter(self._extractive_answer(question, docs, tool_results)):
+            async for delta in self.stream_extractive(question, docs, tool_results):
                 yield delta
             return
 
@@ -97,6 +97,13 @@ class RAGService:
         async for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
+    async def stream_extractive(
+        self, question: str, docs: list[dict], tool_results: list[dict]
+    ) -> AsyncIterator[str]:
+        """Stream the offline answer, also used when the model call fails."""
+        async for delta in _typewriter(self._extractive_answer(question, docs, tool_results)):
+            yield delta
 
     def _format_context(self, docs: list[dict], tool_results: list[dict]) -> str:
         """Format numbered sources and tool results into the prompt context."""

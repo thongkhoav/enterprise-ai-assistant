@@ -136,6 +136,7 @@ export function App() {
               content: message.content,
               route: message.route || undefined,
               citations: message.citations || [],
+              toolResults: message.tool_results || [],
             }))
           : STARTER_MESSAGES,
       );
@@ -209,6 +210,7 @@ export function App() {
                   citations: event.citations,
                   latencyMs: event.latency_ms,
                   answerMode: event.answer_mode,
+                  toolResults: event.tool_results || [],
                 }
               : item,
           ),

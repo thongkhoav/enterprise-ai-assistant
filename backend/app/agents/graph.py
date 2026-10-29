@@ -1,9 +1,11 @@
+import logging
 from collections.abc import AsyncIterator
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
 from langgraph.graph import END, StateGraph
+from openai import APIError
 
 from app.agents.router import classify_route
 from app.agents.state import AgentState
@@ -20,6 +22,8 @@ from app.services.rag import NO_ANSWER, RAGService, cited_numbers, is_no_answer
 from app.telemetry.tracing import write_trace
 
 SNIPPET_CHARS = 900
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRunner:
@@ -62,15 +66,31 @@ class AgentRunner:
         documents = state.get("documents", [])
         tool_results = state.get("tool_results", [])
 
+        answer_mode = self.rag.answer_mode
         fixed_answer = self._fixed_answer(route, documents, tool_results)
         if fixed_answer is not None:
             answer = fixed_answer
             yield {"type": "token", "text": answer}
         else:
             parts: list[str] = []
-            async for delta in self.rag.stream_answer(request.message, documents, tool_results):
-                parts.append(delta)
-                yield {"type": "token", "text": delta}
+            try:
+                async for delta in self.rag.stream_answer(
+                    request.message, documents, tool_results
+                ):
+                    parts.append(delta)
+                    yield {"type": "token", "text": delta}
+            except APIError:
+                # A bad key, rate limit or outage should not break the chat. Before any
+                # token has streamed, fall back to the extractive answer from the sources.
+                if parts:
+                    raise
+                logger.exception("Model call failed; answering from the sources instead")
+                answer_mode = "fallback"
+                async for delta in self.rag.stream_extractive(
+                    request.message, documents, tool_results
+                ):
+                    parts.append(delta)
+                    yield {"type": "token", "text": delta}
             answer = "".join(parts).strip()
 
         if is_no_answer(answer):
@@ -106,7 +126,7 @@ class AgentRunner:
             "tool_results": tool_results,
             "trace_id": trace_id,
             "latency_ms": latency_ms,
-            "answer_mode": self.rag.answer_mode,
+            "answer_mode": answer_mode,
         }
 
     def _build_graph(self):

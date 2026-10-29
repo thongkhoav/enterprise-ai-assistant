@@ -1,4 +1,23 @@
-from app.agents.tools import detect_priority, format_ticket_confirmation
+import pytest
+
+from app.agents.tools import detect_priority, format_ticket_confirmation, ticket_title
+
+
+@pytest.mark.parametrize(
+    ("question", "title"),
+    [
+        (
+            "Create a high priority ticket for a failed enterprise import.",
+            "A failed enterprise import",
+        ),
+        ("Create a ticket: billing export is broken for Acme", "Billing export is broken for Acme"),
+        ("please open an urgent ticket about SSO login loops", "SSO login loops"),
+        ("Customer cannot log in, file a ticket", "Customer cannot log in, file a ticket"),
+        ("Create a ticket", "Create a ticket"),
+    ],
+)
+def test_ticket_title_drops_the_request_wording(question: str, title: str) -> None:
+    assert ticket_title(question) == title
 
 
 def test_detect_priority_high_from_high_priority_phrase() -> None:

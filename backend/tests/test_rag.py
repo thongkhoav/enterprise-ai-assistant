@@ -1,5 +1,8 @@
 from types import SimpleNamespace
 
+import httpx
+from openai import APIConnectionError
+
 from app.agents.graph import AgentRunner
 from app.core.config import Settings
 from app.schemas.chat import ChatRequest
@@ -63,6 +66,25 @@ async def test_agent_answer_cites_source_passage(tmp_path) -> None:
     assert result["citations"][0]["n"] == 1
     assert result["citations"][0]["text"] == POLICY
     assert result["answer_mode"] == "extractive"
+
+
+async def test_agent_falls_back_to_sources_when_the_model_call_fails(tmp_path) -> None:
+    store = FakeVectorStore([_hit(POLICY, 0.85)])
+    settings = Settings(openai_api_key="sk-invalid", trace_log_path=tmp_path / "traces.jsonl")
+    rag = RAGService(settings, store)
+
+    async def failing_create(**_: object) -> None:
+        raise APIConnectionError(request=httpx.Request("POST", "https://api.openai.com"))
+
+    rag._client.chat.completions.create = failing_create
+    agent = AgentRunner(settings, rag, ticket_store=None)
+
+    request = ChatRequest(message="How fast are refund requests acknowledged?")
+    result = await agent.run(request, "c-1")
+
+    assert "24 business hours" in result["answer"]
+    assert result["answer_mode"] == "fallback"
+    assert result["citations"][0]["n"] == 1
 
 
 def test_answer_helpers() -> None:

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     rough_cost_per_1k_tokens_usd: float = 0.002
 
     cors_origins_raw: str = Field(
-        default="http://localhost:3000,http://localhost:5173",
+        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173",
         alias="CORS_ORIGINS",
     )
 
