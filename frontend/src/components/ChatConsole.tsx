@@ -38,7 +38,7 @@ const SUGGESTIONS = [
     icon: FileText,
     kind: "From the docs",
     tone: "blue",
-    text: "What is the refund SLA policy?",
+    text: "What service credit do we get if uptime drops to 98.5%?",
   },
   {
     icon: ShieldQuestion,
@@ -530,28 +530,44 @@ function quotedSentence(citation: Citation, answer: string): string | null {
   const marker = `[${citation.n}]`;
   const claims = [...answer.matchAll(/([^[\]]+)((?:\s*\[(?:\d+|data)\])+)/g)]
     .filter((match) => match[2].includes(marker))
-    .map((match) => match[1])
-    .join(" ");
-  const claimWords = contentWords(claims || answer);
+    .map((match) => match[1]);
+  const passage = cleanPassage(citation.text).split(/(?<=[.!?])\s+/);
 
-  let best: string | null = null;
-  let bestScore = 0;
-  for (const sentence of cleanPassage(citation.text).split(/(?<=[.!?])\s+/)) {
-    const words = contentWords(sentence);
-    const overlap = [...words].filter((word) => claimWords.has(word)).length;
-    // Normalise by length so a long run-on sentence does not win on size alone.
-    const score = overlap < 2 ? 0 : overlap / Math.sqrt(words.size);
-    if (score > bestScore) {
-      best = sentence.trim();
-      bestScore = score;
+  // Models often cite a whole paragraph at its end. Its first sentence states the answer,
+  // so match claim sentences in order and quote for the first one that matches anything.
+  for (const claim of (claims.length ? claims : [answer]).flatMap(splitSentences)) {
+    const claimWords = contentWords(claim);
+    let best: string | null = null;
+    let bestScore = 0;
+    for (const sentence of passage) {
+      const words = contentWords(sentence);
+      const shared = [...words].filter((word) => claimWords.has(word));
+      // A shared number ("25 percent") pins the sentence far better than shared prose.
+      const overlap = shared.reduce((sum, word) => sum + (/^\d+$/.test(word) ? 3 : 1), 0);
+      // Normalise by length so a long run-on sentence does not win on size alone.
+      const score = shared.length < 2 ? 0 : overlap / Math.sqrt(words.size);
+      if (score > bestScore) {
+        best = sentence.trim();
+        bestScore = score;
+      }
     }
+    if (best) return best;
   }
-  return best;
+  return null;
 }
 
-/** Drop markdown heading and bullet markers that chunking flattened into the passage. */
+function splitSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+(?=[A-Z])/).filter((part) => part.trim());
+}
+
+/**
+ * Drop markdown heading and bullet markers that chunking flattened into the passage, and the
+ * sentence fragment a chunk can start with ("according to these tiers. Uptime from ...").
+ */
 function cleanPassage(text: string | null | undefined): string {
-  return (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
+  const cleaned = (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
+  const fragment = /^[a-z][^.!?]{0,120}[.!?]\s+(?=[A-Z])/.exec(cleaned);
+  return fragment ? cleaned.slice(fragment[0].length) : cleaned;
 }
 
 function contentWords(text: string): Set<string> {
