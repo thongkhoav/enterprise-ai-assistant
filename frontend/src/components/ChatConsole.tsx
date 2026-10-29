@@ -12,12 +12,13 @@ import {
   ShieldQuestion,
   Sparkles,
   TicketCheck,
+  TriangleAlert,
   UploadCloud,
 } from "lucide-react";
 import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
 
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
-import type { ChatMessage, Citation } from "../types";
+import type { ChatMessage, Citation, ToolResult } from "../types";
 
 type ChatConsoleProps = {
   title: string;
@@ -37,7 +38,7 @@ const SUGGESTIONS = [
     icon: FileText,
     kind: "From the docs",
     tone: "blue",
-    text: "What is the refund SLA policy?",
+    text: "What service credit do we get if uptime drops to 98.5%?",
   },
   {
     icon: ShieldQuestion,
@@ -49,7 +50,7 @@ const SUGGESTIONS = [
     icon: Database,
     kind: "Live data tool",
     tone: "green",
-    text: "What is current MRR revenue?",
+    text: "What is our current MRR?",
   },
   {
     icon: TicketCheck,
@@ -275,7 +276,9 @@ function AssistantMessage({
   const [copied, setCopied] = useState(false);
   const citations = message.citations || [];
   const noAnswer = message.route === "no_answer";
+  const failed = message.route === "error";
   const isDone = message.route !== undefined;
+  const liveData = message.route === "database" ? databaseResult(message.toolResults) : null;
 
   if (!message.content) {
     return (
@@ -302,10 +305,15 @@ function AssistantMessage({
 
   return (
     <div className="answer">
-      <div className={`answer-body ${noAnswer ? "no-answer" : ""}`}>
+      <div className={`answer-body ${noAnswer ? "no-answer" : ""} ${failed ? "failed" : ""}`}>
         {noAnswer && (
           <span className="no-answer-label">
             <CircleHelp size={15} /> Not found in the documents
+          </span>
+        )}
+        {failed && (
+          <span className="no-answer-label">
+            <TriangleAlert size={15} /> Something went wrong
           </span>
         )}
         <AnswerText
@@ -338,7 +346,9 @@ function AssistantMessage({
         </div>
       )}
 
-      {isDone && (
+      {liveData && <DataCard data={liveData} />}
+
+      {isDone && !failed && (
         <div className="answer-meta">
           <button type="button" className="meta-button" onClick={copy}>
             {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -353,6 +363,7 @@ function AssistantMessage({
             </span>
           )}
           {message.answerMode === "extractive" && <span>offline extractive mode</span>}
+          {message.answerMode === "fallback" && <span>LLM unavailable, quoted from the sources</span>}
         </div>
       )}
     </div>
@@ -453,6 +464,60 @@ function SourceCard({
   );
 }
 
+type DatabaseResult = {
+  table: string;
+  rows: Record<string, unknown>;
+  queried_at?: string;
+};
+
+function databaseResult(toolResults: ToolResult[] | undefined): DatabaseResult | null {
+  const result = toolResults?.find((item) => item.name === "query_fake_database")?.result;
+  return result && typeof result.table === "string" && result.rows
+    ? (result as unknown as DatabaseResult)
+    : null;
+}
+
+/** The rows the metrics tool returned, so a [data] citation can be checked like a source. */
+function DataCard({ data }: { data: DatabaseResult }) {
+  const queriedAt = data.queried_at ? new Date(data.queried_at) : null;
+  return (
+    <div className="sources">
+      <p className="sources-label">Live data</p>
+      <div className="data-card">
+        <span className="source-head">
+          <span className="source-n data">
+            <Database size={12} />
+          </span>
+          <strong>{data.table}</strong>
+          {queriedAt && (
+            <span className="source-tag">
+              queried {queriedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </span>
+        <dl className="data-rows">
+          {Object.entries(data.rows).map(([key, value]) => (
+            <div key={key}>
+              <dt>{fieldLabel(key)}</dt>
+              <dd>{typeof value === "number" ? value.toLocaleString() : String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function fieldLabel(key: string): string {
+  const label = key
+    .replace(/_usd$/, " (USD)")
+    .replace(/_pct$/, " (%)")
+    .replace(/_7d$/, " (7 days)")
+    .replace(/_/g, " ")
+    .replace(/\b(mrr|sla|p95|nps|mttr)\b/g, (word) => word.toUpperCase());
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 const STOPWORDS = new Set([
   "the", "and", "for", "are", "with", "that", "this", "from", "must", "should",
 ]);
@@ -465,28 +530,44 @@ function quotedSentence(citation: Citation, answer: string): string | null {
   const marker = `[${citation.n}]`;
   const claims = [...answer.matchAll(/([^[\]]+)((?:\s*\[(?:\d+|data)\])+)/g)]
     .filter((match) => match[2].includes(marker))
-    .map((match) => match[1])
-    .join(" ");
-  const claimWords = contentWords(claims || answer);
+    .map((match) => match[1]);
+  const passage = cleanPassage(citation.text).split(/(?<=[.!?])\s+/);
 
-  let best: string | null = null;
-  let bestScore = 0;
-  for (const sentence of cleanPassage(citation.text).split(/(?<=[.!?])\s+/)) {
-    const words = contentWords(sentence);
-    const overlap = [...words].filter((word) => claimWords.has(word)).length;
-    // Normalise by length so a long run-on sentence does not win on size alone.
-    const score = overlap < 2 ? 0 : overlap / Math.sqrt(words.size);
-    if (score > bestScore) {
-      best = sentence.trim();
-      bestScore = score;
+  // Models often cite a whole paragraph at its end. Its first sentence states the answer,
+  // so match claim sentences in order and quote for the first one that matches anything.
+  for (const claim of (claims.length ? claims : [answer]).flatMap(splitSentences)) {
+    const claimWords = contentWords(claim);
+    let best: string | null = null;
+    let bestScore = 0;
+    for (const sentence of passage) {
+      const words = contentWords(sentence);
+      const shared = [...words].filter((word) => claimWords.has(word));
+      // A shared number ("25 percent") pins the sentence far better than shared prose.
+      const overlap = shared.reduce((sum, word) => sum + (/^\d+$/.test(word) ? 3 : 1), 0);
+      // Normalise by length so a long run-on sentence does not win on size alone.
+      const score = shared.length < 2 ? 0 : overlap / Math.sqrt(words.size);
+      if (score > bestScore) {
+        best = sentence.trim();
+        bestScore = score;
+      }
     }
+    if (best) return best;
   }
-  return best;
+  return null;
 }
 
-/** Drop markdown heading and bullet markers that chunking flattened into the passage. */
+function splitSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+(?=[A-Z])/).filter((part) => part.trim());
+}
+
+/**
+ * Drop markdown heading and bullet markers that chunking flattened into the passage, and the
+ * sentence fragment a chunk can start with ("according to these tiers. Uptime from ...").
+ */
 function cleanPassage(text: string | null | undefined): string {
-  return (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
+  const cleaned = (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
+  const fragment = /^[a-z][^.!?]{0,120}[.!?]\s+(?=[A-Z])/.exec(cleaned);
+  return fragment ? cleaned.slice(fragment[0].length) : cleaned;
 }
 
 function contentWords(text: string): Set<string> {

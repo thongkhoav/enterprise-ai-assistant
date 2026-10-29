@@ -8,6 +8,7 @@ export type ChatMessage = {
   citations?: Citation[];
   latencyMs?: number;
   answerMode?: string;
+  toolResults?: ToolResult[];
 };
 
 export type ApiChatMessage = {

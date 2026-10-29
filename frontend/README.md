@@ -5,7 +5,7 @@ Vite + React + TypeScript UI for the Enterprise AI Assistant API.
 ## Setup
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/frontend
+cd frontend
 npm install
 cp .env.example .env
 npm run dev

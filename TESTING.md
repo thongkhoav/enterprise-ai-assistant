@@ -1,8 +1,7 @@
 # Testing Guide
 
 How to test the Enterprise AI Assistant end to end: automated checks, manual API tests, and the
-frontend UI. Commands assume the repo root at
-`/Users/rio/Documents/coding/enterprise-ai-assistant`.
+frontend UI. Commands run from the repo root.
 
 The app has three moving parts:
 

@@ -45,7 +45,7 @@ export function Inspector({
           <dt>Latency</dt>
           <dd>{latencyMs === null ? "—" : `${(latencyMs / 1000).toFixed(2)} s`}</dd>
           <dt>Answer</dt>
-          <dd>{answerMode === "extractive" ? "extractive (no LLM key)" : answerMode || "—"}</dd>
+          <dd>{ANSWER_MODES[answerMode || ""] || answerMode || "—"}</dd>
           <dt>Trace ID</dt>
           <dd className="mono">{traceId}</dd>
         </dl>
@@ -86,6 +86,12 @@ export function Inspector({
     </aside>
   );
 }
+
+const ANSWER_MODES: Record<string, string> = {
+  llm: "LLM with citations",
+  extractive: "extractive (no LLM key)",
+  fallback: "extractive (LLM call failed)",
+};
 
 function formatScore(value: number | null): string {
   return typeof value === "number" ? value.toFixed(3) : "n/a";

@@ -25,7 +25,7 @@ uv --version
 ## Install Dependencies
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/backend
+cd backend
 uv sync --extra dev
 ```
 

@@ -9,18 +9,37 @@ from app.services.vector_store import VectorStore
 
 NO_ANSWER = "I don't know. The indexed documents don't cover that question."
 
+# gpt-4.1-mini misread banded rules (e.g. which service-credit tier 98.5% uptime falls in)
+# in 5 of 6 runs on the seed contract; gpt-4.1 got all 6 right at a few tenths of a cent more.
+DEFAULT_MODEL = "gpt-4.1"
+
 # Minimum cosine similarity for a chunk to count as evidence, per embedding provider.
 # bge-small scores unrelated text around 0.45-0.55; hash vectors only overlap on shared words.
+# The extractive answer quotes whatever clears the bar, so offline mode needs a strict one.
 DEFAULT_MIN_SCORE = {"local": 0.62, "openai": 0.35, "hash": 0.12}
+# With a model, the bar only has to reject clearly off-topic questions: the model reads the
+# near misses and replies NO_ANSWER itself when they do not answer the question. On the seed
+# docs, "hotel limit in London?" (answered on handbook p.3) scores 0.60 while "parental
+# leave policy?" (not covered) scores 0.59, so no single strict bar separates them.
+LLM_MIN_SCORE = {"local": 0.55, "openai": 0.3, "hash": 0.1}
 
 SYSTEM_PROMPT = f"""You answer questions using only the numbered sources below.
 
 Rules:
-- Cite every factual sentence with its source number in square brackets, like [1] or [2][3].
-- Live data from tools is labelled [data]; cite it the same way.
+- Put the source number in square brackets at the end of each sentence it supports,
+  like "... within 24 business hours [1]." Never collect all citations at the very end.
+- Live data from tools is labelled [data]; cite it the same way and report the values
+  as given. Do not invent formulas or derived metrics the data does not state.
 - Never use outside knowledge. If the sources do not answer the question, reply exactly:
   {NO_ANSWER}
-- Be concise: one short paragraph or a few bullet points. Plain text, no headings."""
+- Be concise: answer the question directly in two to four sentences or a few bullet
+  points, with no closing summary or commentary. Plain text, no headings.
+
+Example of the citation style:
+  Invoices are due within 30 days [1]. Late invoices pause API access after 14 days [3].
+Example with live data that has no "churn rate" field:
+  The data does not report a churn rate. It shows 37 of 12,840 customers flagged as
+  churn risk [data]."""
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 _STOPWORDS = {
@@ -34,15 +53,16 @@ class RAGService:
     def __init__(self, settings: Settings, vector_store: VectorStore) -> None:
         self.settings = settings
         self.vector_store = vector_store
-        self.min_score = (
-            settings.rag_min_score
-            if settings.rag_min_score is not None
-            else DEFAULT_MIN_SCORE.get(vector_store.embeddings.provider, 0.3)
-        )
         self._client = (
             AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
             if settings.openai_api_key
             else None
+        )
+        defaults = LLM_MIN_SCORE if self._client else DEFAULT_MIN_SCORE
+        self.min_score = (
+            settings.rag_min_score
+            if settings.rag_min_score is not None
+            else defaults.get(vector_store.embeddings.provider, 0.3)
         )
 
     @property
@@ -68,12 +88,12 @@ class RAGService:
         extractive answer built from the best-matching source sentences so the demo runs offline.
         """
         if not self._client:
-            async for delta in _typewriter(self._extractive_answer(question, docs, tool_results)):
+            async for delta in self.stream_extractive(question, docs, tool_results):
                 yield delta
             return
 
         stream = await self._client.chat.completions.create(
-            model=self.settings.openai_model or "gpt-4.1-mini",
+            model=self.settings.openai_model or DEFAULT_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
@@ -88,6 +108,13 @@ class RAGService:
         async for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
+    async def stream_extractive(
+        self, question: str, docs: list[dict], tool_results: list[dict]
+    ) -> AsyncIterator[str]:
+        """Stream the offline answer, also used when the model call fails."""
+        async for delta in _typewriter(self._extractive_answer(question, docs, tool_results)):
+            yield delta
 
     def _format_context(self, docs: list[dict], tool_results: list[dict]) -> str:
         """Format numbered sources and tool results into the prompt context."""
