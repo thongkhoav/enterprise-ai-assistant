@@ -1,7 +1,8 @@
-import { LogIn, UserPlus } from "lucide-react";
+import { CircleHelp, FileText, LogIn, Quote, Sparkles, UploadCloud, UserPlus } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 import { loginUser, registerUser } from "../api/client";
+import { APP_NAME, APP_TAGLINE } from "../lib/brand";
 import type { Settings } from "../types";
 
 type AuthScreenProps = {
@@ -10,6 +11,12 @@ type AuthScreenProps = {
 };
 
 type Mode = "login" | "register";
+
+const FEATURES = [
+  { icon: UploadCloud, text: "Upload PDFs, Word files or Markdown and ask questions right away" },
+  { icon: Quote, text: "Every answer links to the passage and page it came from" },
+  { icon: CircleHelp, text: "Says “I don't know” when the documents don't cover the question" },
+];
 
 export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>("login");
@@ -36,66 +43,123 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
     }
   }
 
+  async function handleGuest() {
+    setError(null);
+    setIsBusy(true);
+    try {
+      // A throwaway account per visitor, so demo conversations stay private to that browser.
+      const id = crypto.randomUUID();
+      const token = await registerUser(settings, `guest-${id.slice(0, 12)}@example.com`, id);
+      onAuthenticated(token);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not start a demo session.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   return (
     <main className="auth-shell">
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <section className="auth-hero">
         <div className="brand">
-          <div className="brand-mark">AI</div>
+          <div className="brand-mark">
+            <FileText size={18} />
+          </div>
           <div>
-            <h1>Enterprise AI Assistant</h1>
-            <p>{mode === "login" ? "Sign in to continue" : "Create your account"}</p>
+            <h1>{APP_NAME}</h1>
+            <p>RAG assistant with sources</p>
           </div>
         </div>
+        <h2>{APP_TAGLINE}.</h2>
+        <ul>
+          {FEATURES.map(({ icon: Icon, text }) => (
+            <li key={text}>
+              <span>
+                <Icon size={17} />
+              </span>
+              {text}
+            </li>
+          ))}
+        </ul>
+        <div className="hero-preview" aria-hidden>
+          <p>
+            Refund requests must be acknowledged within 24 business hours
+            <span className="cite">1</span>, and standard refunds are processed within 5 business
+            days<span className="cite">2</span>.
+          </p>
+          <div>
+            <span className="source-n">1</span> sample_policy.md
+            <span className="source-score">85%</span>
+          </div>
+        </div>
+      </section>
 
-        {mode === "register" && (
-          <label>
-            Full name (optional)
-            <input value={fullName} onChange={(event) => setFullName(event.target.value)} />
-          </label>
-        )}
+      <section className="auth-panel">
+        <div className="auth-card">
+          <h3>Try it in one click</h3>
+          <p className="muted">No sign-up needed. You get a private guest session.</p>
 
-        <label>
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </label>
-
-        <label>
-          Password
-          <input
-            type="password"
-            required
-            minLength={mode === "register" ? 8 : undefined}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
-
-        {error && <p className="status error">{error}</p>}
-
-        <button type="submit" disabled={isBusy}>
-          {mode === "login" ? <LogIn size={17} /> : <UserPlus size={17} />}
-          {isBusy ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}
-        </button>
-
-        <p className="auth-switch">
-          {mode === "login" ? "No account yet?" : "Already have an account?"}{" "}
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              setMode(mode === "login" ? "register" : "login");
-              setError(null);
-            }}
-          >
-            {mode === "login" ? "Register" : "Sign in"}
+          <button type="button" className="primary-lg" disabled={isBusy} onClick={handleGuest}>
+            <Sparkles size={18} />
+            {isBusy ? "Starting..." : "Try the demo"}
           </button>
-        </p>
-      </form>
+
+          <div className="divider">or {mode === "login" ? "sign in" : "create an account"}</div>
+
+          <form onSubmit={handleSubmit}>
+            {mode === "register" && (
+              <label>
+                Full name (optional)
+                <input value={fullName} onChange={(event) => setFullName(event.target.value)} />
+              </label>
+            )}
+
+            <label>
+              Email
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Password
+              <input
+                type="password"
+                required
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                minLength={mode === "register" ? 8 : undefined}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+
+            {error && <p className="status error">{error}</p>}
+
+            <button type="submit" className="secondary" disabled={isBusy}>
+              {mode === "login" ? <LogIn size={17} /> : <UserPlus size={17} />}
+              {mode === "login" ? "Sign in" : "Create account"}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            {mode === "login" ? "No account yet?" : "Already have an account?"}{" "}
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError(null);
+              }}
+            >
+              {mode === "login" ? "Register" : "Sign in"}
+            </button>
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
