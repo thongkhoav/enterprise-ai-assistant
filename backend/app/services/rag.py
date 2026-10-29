@@ -16,11 +16,20 @@ DEFAULT_MIN_SCORE = {"local": 0.62, "openai": 0.35, "hash": 0.12}
 SYSTEM_PROMPT = f"""You answer questions using only the numbered sources below.
 
 Rules:
-- Cite every factual sentence with its source number in square brackets, like [1] or [2][3].
-- Live data from tools is labelled [data]; cite it the same way.
+- Put the source number in square brackets at the end of each sentence it supports,
+  like "... within 24 business hours [1]." Never collect all citations at the very end.
+- Live data from tools is labelled [data]; cite it the same way and report the values
+  as given. Do not invent formulas or derived metrics the data does not state.
 - Never use outside knowledge. If the sources do not answer the question, reply exactly:
   {NO_ANSWER}
-- Be concise: one short paragraph or a few bullet points. Plain text, no headings."""
+- Be concise: answer the question directly in two to four sentences or a few bullet
+  points, with no closing summary or commentary. Plain text, no headings.
+
+Example of the citation style:
+  Invoices are due within 30 days [1]. Late invoices pause API access after 14 days [3].
+Example with live data that has no "churn rate" field:
+  The data does not report a churn rate. It shows 37 of 12,840 customers flagged as
+  churn risk [data]."""
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 _STOPWORDS = {
