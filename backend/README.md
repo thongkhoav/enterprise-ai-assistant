@@ -27,7 +27,7 @@ brew install uv
 ```
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/backend
+cd backend
 uv sync --extra dev
 cp .env.example .env
 ```

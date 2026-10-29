@@ -3,6 +3,8 @@
 Monorepo for an enterprise AI assistant portfolio project: a RAG chatbot that answers from your
 documents and shows the passage (and PDF page) each answer comes from.
 
+![Cited answer with the source passage highlighted, and an "I don't know" reply when the documents don't cover the question](docs/demo.jpg)
+
 ## What It Does
 
 - Upload PDF, DOCX, Markdown or text; documents are chunked, embedded with a free local model
@@ -25,7 +27,7 @@ documents and shows the passage (and PDF page) each answer comes from.
 Use Python 3.11 or newer.
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/backend
+cd backend
 uv sync --extra dev
 cp .env.example .env
 make seed
@@ -42,7 +44,7 @@ Backend URLs:
 Use Node.js 20 or newer.
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/frontend
+cd frontend
 npm install
 cp .env.example .env
 npm run dev
@@ -60,7 +62,7 @@ Default frontend settings:
 Embeddings: `.env.example` uses `EMBEDDING_PROVIDER=local` (free, runs on CPU). Install it with:
 
 ```bash
-cd /Users/rio/Documents/coding/enterprise-ai-assistant/backend
+cd backend
 uv sync --extra dev --extra local-embeddings
 ```
 
