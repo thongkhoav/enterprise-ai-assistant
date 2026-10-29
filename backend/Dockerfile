@@ -14,7 +14,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable --extra local-embeddings
+
+# Bake the embedding model into the image so containers start without a download.
+ARG LOCAL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed
+RUN uv run python -c "from fastembed import TextEmbedding; TextEmbedding('${LOCAL_EMBEDDING_MODEL}')"
 
 COPY app ./app
 COPY docs ./docs

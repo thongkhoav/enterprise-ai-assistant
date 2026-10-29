@@ -4,6 +4,10 @@ export type ChatMessage = {
   id: string;
   role: Exclude<Role, "system">;
   content: string;
+  route?: string;
+  citations?: Citation[];
+  latencyMs?: number;
+  answerMode?: string;
 };
 
 export type ApiChatMessage = {
@@ -12,10 +16,13 @@ export type ApiChatMessage = {
 };
 
 export type Citation = {
+  n?: number | null;
   source: string;
+  document_id?: string | null;
   chunk_id: string;
   score: number | null;
   page?: number | null;
+  text?: string | null;
 };
 
 export type ToolResult = {
@@ -30,6 +37,13 @@ export type DoneEvent = {
   tool_results: ToolResult[];
   trace_id: string;
   route: string;
+  latency_ms?: number;
+  answer_mode?: string;
+};
+
+export type ErrorEvent = {
+  type: "error";
+  detail: string;
 };
 
 export type TokenEvent = {
@@ -37,7 +51,7 @@ export type TokenEvent = {
   text: string;
 };
 
-export type StreamEvent = DoneEvent | TokenEvent;
+export type StreamEvent = DoneEvent | TokenEvent | ErrorEvent;
 
 export type Settings = {
   apiBaseUrl: string;
@@ -76,5 +90,14 @@ export type UploadResponse = {
   document_id: string;
   source: string;
   chunks_indexed: number;
+  page_count?: number | null;
+};
+
+export type DocumentSummary = {
+  document_id: string;
+  source: string;
+  filename?: string | null;
+  page_count?: number | null;
+  chunks: number;
 };
 

@@ -2,6 +2,8 @@ import type {
   AuthUser,
   ConversationDetail,
   ConversationSummary,
+  DocumentSummary,
+  ErrorEvent,
   Settings,
   StreamEvent,
   UploadResponse,
@@ -108,6 +110,37 @@ export async function deleteConversation(
   }
 }
 
+export async function listDocuments(
+  settings: Settings,
+  token: string,
+): Promise<DocumentSummary[]> {
+  const response = await fetch(`${settings.apiBaseUrl}/v1/documents`, {
+    headers: authHeaders(token),
+  });
+  const payload = await readJson<DocumentSummary[] | { detail?: string }>(response);
+  if (!response.ok) {
+    throw new Error(
+      detailMessage((payload as { detail?: string }).detail) || "Failed to load documents",
+    );
+  }
+  return payload as DocumentSummary[];
+}
+
+export async function deleteDocument(
+  settings: Settings,
+  token: string,
+  documentId: string,
+): Promise<void> {
+  const response = await fetch(`${settings.apiBaseUrl}/v1/documents/${documentId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok && response.status !== 204) {
+    const payload = await readJson<{ detail?: string }>(response);
+    throw new Error(detailMessage(payload.detail) || "Failed to delete document");
+  }
+}
+
 export async function uploadDocument(
   settings: Settings,
   token: string,
@@ -137,7 +170,7 @@ export async function streamChat(
   token: string,
   conversationId: string | null,
   message: string,
-  onEvent: (event: StreamEvent) => void,
+  onEvent: (event: Exclude<StreamEvent, ErrorEvent>) => void,
 ): Promise<void> {
   const response = await fetch(`${settings.apiBaseUrl}/v1/chat/stream`, {
     method: "POST",
@@ -171,7 +204,11 @@ export async function streamChat(
     for (const eventText of eventTexts) {
       const dataLine = eventText.split("\n").find((line) => line.startsWith("data: "));
       if (!dataLine) continue;
-      onEvent(JSON.parse(dataLine.slice(6)) as StreamEvent);
+      const event = JSON.parse(dataLine.slice(6)) as StreamEvent;
+      if (event.type === "error") {
+        throw new Error(event.detail || "The model request failed.");
+      }
+      onEvent(event);
     }
   }
 }

@@ -1,8 +1,11 @@
+from collections.abc import AsyncIterator
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
 from langgraph.graph import END, StateGraph
 
+from app.agents.router import classify_route
 from app.agents.state import AgentState
 from app.agents.tools import (
     create_ticket_tool,
@@ -13,11 +16,20 @@ from app.agents.tools import (
 from app.core.config import Settings
 from app.db.tickets import TicketStore
 from app.schemas.chat import ChatRequest
-from app.services.rag import RAGService
+from app.services.rag import NO_ANSWER, RAGService, cited_numbers, is_no_answer
 from app.telemetry.tracing import write_trace
+
+SNIPPET_CHARS = 900
 
 
 class AgentRunner:
+    """Routes a question, gathers evidence with LangGraph, then streams the answer.
+
+    The graph (router -> retriever -> tool_caller) decides what evidence the answer needs.
+    Answer generation runs outside the graph so tokens can be streamed to the client as the
+    model produces them.
+    """
+
     def __init__(self, settings: Settings, rag: RAGService, ticket_store: TicketStore) -> None:
         self.settings = settings
         self.rag = rag
@@ -25,6 +37,18 @@ class AgentRunner:
         self.graph = self._build_graph()
 
     async def run(self, request: ChatRequest, conversation_id: str) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        async for event in self.stream(request, conversation_id):
+            if event["type"] == "done":
+                result = event
+        result.pop("type", None)
+        return result
+
+    async def stream(
+        self, request: ChatRequest, conversation_id: str
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Yield {"type": "token", "text"} events, then one {"type": "done", ...} result."""
+        started = perf_counter()
         trace_id = str(uuid4())
         initial: AgentState = {
             "conversation_id": conversation_id,
@@ -33,22 +57,38 @@ class AgentRunner:
             "documents": [],
             "tool_results": [],
         }
+        state = await self.graph.ainvoke(initial)
+        route = state.get("route", "rag")
+        documents = state.get("documents", [])
+        tool_results = state.get("tool_results", [])
 
-        result = await self.graph.ainvoke(initial)
-        citations = self._citations(result.get("documents", []))
-        answer = result.get("answer", "")
-        tool_results = result.get("tool_results", [])
+        fixed_answer = self._fixed_answer(route, documents, tool_results)
+        if fixed_answer is not None:
+            answer = fixed_answer
+            yield {"type": "token", "text": answer}
+        else:
+            parts: list[str] = []
+            async for delta in self.rag.stream_answer(request.message, documents, tool_results):
+                parts.append(delta)
+                yield {"type": "token", "text": delta}
+            answer = "".join(parts).strip()
+
+        if is_no_answer(answer):
+            route = "no_answer"
+        citations = self._citations(route, documents, answer)
+        latency_ms = round((perf_counter() - started) * 1000)
 
         write_trace(
             self.settings,
             {
                 "trace_id": trace_id,
                 "conversation_id": conversation_id,
-                "route": result.get("route", "rag"),
+                "route": route,
                 "question": request.message,
                 "answer_chars": len(answer),
                 "tool_count": len(tool_results),
                 "citation_count": len(citations),
+                "latency_ms": latency_ms,
                 "estimated_tokens": _estimate_tokens(request.message + answer),
                 "estimated_cost_usd": _estimate_cost(
                     request.message + answer,
@@ -57,13 +97,16 @@ class AgentRunner:
             },
         )
 
-        return {
+        yield {
+            "type": "done",
             "conversation_id": conversation_id,
             "answer": answer,
-            "route": result.get("route", "rag"),
+            "route": route,
             "citations": citations,
             "tool_results": tool_results,
             "trace_id": trace_id,
+            "latency_ms": latency_ms,
+            "answer_mode": self.rag.answer_mode,
         }
 
     def _build_graph(self):
@@ -71,38 +114,15 @@ class AgentRunner:
         builder.add_node("router", self._router)
         builder.add_node("retriever", self._retriever)
         builder.add_node("tool_caller", self._tool_caller)
-        builder.add_node("answer_generator", self._answer_generator)
 
         builder.set_entry_point("router")
         builder.add_edge("router", "retriever")
         builder.add_edge("retriever", "tool_caller")
-        builder.add_edge("tool_caller", "answer_generator")
-        builder.add_edge("answer_generator", END)
+        builder.add_edge("tool_caller", END)
         return builder.compile()
 
     async def _router(self, state: AgentState) -> AgentState:
-        question = state["question"].lower()
-        if self._is_ticket_creation_intent(question):
-            route = "ticket"
-        elif self._is_database_intent(question):
-            route = "database"
-        else:
-            route = "rag"
-        return {**state, "route": route}
-
-    def _is_ticket_creation_intent(self, question: str) -> bool:
-        action_words = ["create", "open", "file", "raise", "log"]
-        ticket_words = ["ticket", "task", "issue", "bug", "incident"]
-        return any(word in question for word in action_words) and any(
-            word in question for word in ticket_words
-        )
-
-    def _is_database_intent(self, question: str) -> bool:
-        database_words = ["database", "revenue", "mrr", "employee", "sla", "churn"]
-        aggregate_words = ["how many", "count", "total", "show", "report", "query"]
-        return any(word in question for word in database_words) or any(
-            phrase in question for phrase in aggregate_words
-        )
+        return {**state, "route": classify_route(state["question"])}
 
     async def _retriever(self, state: AgentState) -> AgentState:
         documents = await self.rag.retrieve(state["question"])
@@ -129,20 +149,17 @@ class AgentRunner:
 
         return {**state, "tool_results": results}
 
-    async def _answer_generator(self, state: AgentState) -> AgentState:
-        tool_results = state.get("tool_results", [])
-
-        if state.get("route") == "ticket":
+    def _fixed_answer(
+        self, route: str, documents: list[dict], tool_results: list[dict]
+    ) -> str | None:
+        """Answers that need no model call: ticket confirmations and "I don't know"."""
+        if route == "ticket":
             ticket = self._tool_result(tool_results, "create_ticket")
             if ticket:
-                return {**state, "answer": format_ticket_confirmation(ticket)}
-
-        answer = await self.rag.answer(
-            state["question"],
-            state.get("documents", []),
-            tool_results,
-        )
-        return {**state, "answer": answer}
+                return format_ticket_confirmation(ticket)
+        if route == "rag" and not documents:
+            return NO_ANSWER
+        return None
 
     @staticmethod
     def _tool_result(tool_results: list[dict], name: str) -> dict | None:
@@ -151,16 +168,28 @@ class AgentRunner:
                 return item.get("result")
         return None
 
-    def _citations(self, documents: list[dict]) -> list[dict]:
+    def _citations(self, route: str, documents: list[dict], answer: str) -> list[dict]:
+        """Sources backing the answer: the ones it cites, else every retrieved chunk for rag."""
+        if route == "no_answer":
+            return []
+
+        cited = cited_numbers(answer)
+        if cited:
+            used = [doc for doc in documents if doc["n"] in cited]
+        else:
+            used = documents if route == "rag" else []
         citations = []
-        for doc in documents:
+        for doc in used:
             metadata = doc.get("metadata", {})
             citations.append(
                 {
+                    "n": doc["n"],
                     "source": metadata.get("source", "unknown"),
+                    "document_id": metadata.get("document_id"),
                     "chunk_id": metadata.get("chunk_id", "unknown"),
                     "page": metadata.get("page"),
                     "score": doc.get("score"),
+                    "text": (doc.get("text") or "")[:SNIPPET_CHARS],
                 }
             )
         return citations

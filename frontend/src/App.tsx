@@ -14,6 +14,7 @@ import { Sidebar } from "./components/Sidebar";
 import { clearToken, getToken, setToken } from "./lib/auth";
 import { newId } from "./lib/ids";
 import { loadSettings } from "./lib/settings";
+import { useDocuments } from "./lib/useDocuments";
 import type {
   ApiMessage,
   AuthUser,
@@ -24,13 +25,7 @@ import type {
   ToolResult,
 } from "./types";
 
-const STARTER_MESSAGES: ChatMessage[] = [
-  {
-    id: "welcome",
-    role: "assistant",
-    content: "Ready.",
-  },
-];
+const STARTER_MESSAGES: ChatMessage[] = [];
 
 export function App() {
   const [settings] = useState<Settings>(() => loadSettings());
@@ -46,6 +41,11 @@ export function App() {
   const [traceId, setTraceId] = useState("none");
   const [citations, setCitations] = useState<Citation[]>([]);
   const [toolResults, setToolResults] = useState<ToolResult[]>([]);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [answerMode, setAnswerMode] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const knowledge = useDocuments(settings, token);
 
   const handleLogout = useCallback(() => {
     clearToken();
@@ -58,6 +58,8 @@ export function App() {
     setTraceId("none");
     setCitations([]);
     setToolResults([]);
+    setLatencyMs(null);
+    setAnswerMode(null);
   }, []);
 
   function handleAuthenticated(nextToken: string) {
@@ -97,6 +99,8 @@ export function App() {
     setTraceId("none");
     setCitations([]);
     setToolResults([]);
+    setLatencyMs(null);
+    setAnswerMode(null);
   }
 
   function applyInspectorFromMessages(apiMessages: ApiMessage[]) {
@@ -106,6 +110,8 @@ export function App() {
       setTraceId(lastAssistant.trace_id || "none");
       setCitations(lastAssistant.citations || []);
       setToolResults(lastAssistant.tool_results || []);
+      setLatencyMs(null);
+      setAnswerMode(null);
     } else {
       resetInspector();
     }
@@ -128,6 +134,8 @@ export function App() {
               id: message.id,
               role: message.role === "assistant" ? "assistant" : "user",
               content: message.content,
+              route: message.route || undefined,
+              citations: message.citations || [],
             }))
           : STARTER_MESSAGES,
       );
@@ -171,12 +179,9 @@ export function App() {
       content: "",
     };
 
-    setMessages((current) => {
-      const base = current.length === 1 && current[0].id === "welcome" ? [] : current;
-      return [...base, userMessage, assistantMessage];
-    });
+    setMessages((current) => [...current, userMessage, assistantMessage]);
     setIsStreaming(true);
-    setRoute("streaming");
+    setRoute("thinking");
     setTraceId("pending");
     setCitations([]);
     setToolResults([]);
@@ -194,8 +199,24 @@ export function App() {
           return;
         }
 
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content: item.content.trim(),
+                  route: event.route,
+                  citations: event.citations,
+                  latencyMs: event.latency_ms,
+                  answerMode: event.answer_mode,
+                }
+              : item,
+          ),
+        );
         setRoute(event.route);
         setTraceId(event.trace_id);
+        setLatencyMs(event.latency_ms ?? null);
+        setAnswerMode(event.answer_mode ?? null);
         setCitations(event.citations);
         setToolResults(event.tool_results || []);
         setActiveConversationId(event.conversation_id);
@@ -205,7 +226,11 @@ export function App() {
       setMessages((current) =>
         current.map((item) =>
           item.id === assistantId
-            ? { ...item, content: error instanceof Error ? error.message : "Request failed." }
+            ? {
+                ...item,
+                route: "error",
+                content: error instanceof Error ? error.message : "Request failed.",
+              }
             : item,
         ),
       );
@@ -215,32 +240,60 @@ export function App() {
   }
 
   if (!token) {
-    return (
-      <AuthScreen settings={settings} onAuthenticated={handleAuthenticated} />
-    );
+    return <AuthScreen settings={settings} onAuthenticated={handleAuthenticated} />;
   }
 
+  const activeTitle =
+    conversations.find((conversation) => conversation.id === activeConversationId)?.title ||
+    "New chat";
+
   return (
-    <main className="shell">
+    <main className={`shell ${inspectorOpen ? "with-inspector" : ""}`}>
       <Sidebar
-        settings={settings}
-        token={token}
+        open={sidebarOpen}
         user={user}
         conversations={conversations}
         activeConversationId={activeConversationId}
-        onNewChat={handleNewChat}
-        onSelectConversation={handleSelectConversation}
+        documents={knowledge.documents}
+        uploadStatus={knowledge.status}
+        isUploading={knowledge.isUploading}
+        onClose={() => setSidebarOpen(false)}
+        onNewChat={() => {
+          handleNewChat();
+          setSidebarOpen(false);
+        }}
+        onSelectConversation={(id) => {
+          void handleSelectConversation(id);
+          setSidebarOpen(false);
+        }}
         onDeleteConversation={handleDeleteConversation}
-        onPrompt={handleSend}
+        onUpload={(files) => void knowledge.upload(files)}
+        onDeleteDocument={(id) => void knowledge.remove(id)}
         onLogout={handleLogout}
       />
+      {sidebarOpen && <div className="scrim" onClick={() => setSidebarOpen(false)} />}
       <ChatConsole
+        title={activeTitle}
         messages={messages}
-        route={route}
         isStreaming={isStreaming}
+        documentCount={knowledge.documents.length}
+        uploadStatus={knowledge.status}
+        inspectorOpen={inspectorOpen}
         onSend={handleSend}
+        onUpload={(files) => void knowledge.upload(files)}
+        onToggleInspector={() => setInspectorOpen((current) => !current)}
+        onOpenSidebar={() => setSidebarOpen(true)}
       />
-      <Inspector route={route} traceId={traceId} citations={citations} toolResults={toolResults} />
+      <Inspector
+        open={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        route={route}
+        traceId={traceId}
+        citations={citations}
+        toolResults={toolResults}
+        latencyMs={latencyMs}
+        answerMode={answerMode}
+      />
     </main>
   );
 }

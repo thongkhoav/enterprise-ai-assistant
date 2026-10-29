@@ -40,11 +40,12 @@ class EmbeddingClient:
     def _resolve_provider(self) -> str:
         """Decide which embedding backend to use.
 
-        For `auto`, prefer OpenAI (if a key is set), then local fastembed, then hash. Raises if
-        `openai` is forced without a key; otherwise returns the explicitly configured provider.
+        For `auto`, prefer OpenAI (if a key is set and it points at api.openai.com), then local
+        fastembed, then hash. Raises if `openai` is forced without a key; otherwise returns the
+        explicitly configured provider.
         """
         if self.settings.embedding_provider == "auto":
-            if self.settings.openai_api_key:
+            if self.settings.openai_api_key and not self.settings.openai_base_url:
                 return "openai"
             if self._fastembed_available():
                 return "local"

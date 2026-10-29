@@ -3,11 +3,12 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.agents.graph import AgentRunner
 from app.api.deps import get_agent_runner, get_current_user
 from app.db import conversations as conversation_repo
-from app.db.database import SessionDep
+from app.db.database import SessionDep, get_engine
 from app.db.models import User
 from app.schemas.chat import ChatRequest, ChatResponse
 
@@ -37,6 +38,19 @@ async def _resolve_conversation_id(
     return conversation.id
 
 
+async def _save_answer(session: AsyncSession, result: dict) -> None:
+    await conversation_repo.add_message(
+        session,
+        conversation_id=result["conversation_id"],
+        role="assistant",
+        content=result["answer"],
+        route=result["route"],
+        trace_id=result["trace_id"],
+        citations=result["citations"],
+        tool_results=result["tool_results"],
+    )
+
+
 @router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
@@ -51,18 +65,7 @@ async def chat(
     )
 
     result = await agent.run(request, conversation_id)
-
-    await conversation_repo.add_message(
-        session,
-        conversation_id=conversation_id,
-        role="assistant",
-        content=result["answer"],
-        route=result["route"],
-        trace_id=result["trace_id"],
-        citations=result["citations"],
-        tool_results=result["tool_results"],
-    )
-
+    await _save_answer(session, result)
     return ChatResponse(**result)
 
 
@@ -79,37 +82,18 @@ async def stream_chat(
         session, conversation_id=conversation_id, role="user", content=request.message
     )
 
-    result = await agent.run(request, conversation_id)
-
-    # The agent runs to completion before streaming begins (tokens are split
-    # post-hoc), so the request-scoped session is still open here.
-    await conversation_repo.add_message(
-        session,
-        conversation_id=conversation_id,
-        role="assistant",
-        content=result["answer"],
-        route=result["route"],
-        trace_id=result["trace_id"],
-        citations=result["citations"],
-        tool_results=result["tool_results"],
-    )
-
     async def events() -> AsyncIterator[str]:
-        words = result["answer"].split(" ")
-        for word in words:
-            payload = json.dumps({"type": "token", "text": f"{word} "})
-            yield f"event: token\ndata: {payload}\n\n"
-
-        done = json.dumps(
-            {
-                "type": "done",
-                "conversation_id": conversation_id,
-                "citations": result["citations"],
-                "tool_results": result["tool_results"],
-                "trace_id": result["trace_id"],
-                "route": result["route"],
-            }
-        )
-        yield f"event: done\ndata: {done}\n\n"
+        try:
+            async for event in agent.stream(request, conversation_id):
+                if event["type"] == "done":
+                    # The request-scoped session may already be closed once streaming
+                    # starts, so the answer is saved with a session of its own.
+                    async with AsyncSession(get_engine()) as stream_session:
+                        await _save_answer(stream_session, event)
+                    event = {key: value for key, value in event.items() if key != "answer"}
+                yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+        except Exception as exc:  # surface model/provider failures to the UI
+            payload = json.dumps({"type": "error", "detail": str(exc)})
+            yield f"event: error\ndata: {payload}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
