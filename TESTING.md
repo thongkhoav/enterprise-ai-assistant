@@ -102,8 +102,8 @@ curl http://localhost:8000/health
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
   -H "Authorization: Bearer dev-secret" \
-  -F "file=@backend/docs/sample_policy.md" \
-  -F "source=sample_policy.md"
+  -F "file=@backend/docs/seed/acme_enterprise_support_policy.md" \
+  -F "source=acme_enterprise_support_policy.md"
 ```
 
 Expect a JSON body with `document_id`, `source`, and `chunks_indexed > 0`.
@@ -186,7 +186,7 @@ with `dev-secret`).
 
 Open `http://localhost:5173` and verify:
 
-1. **Upload** a document (e.g. `backend/docs/sample_policy.md`) and confirm it indexes.
+1. **Upload** a document (e.g. `backend/docs/seed/acme_enterprise_support_policy.md`) and confirm it indexes.
 2. **Ask a RAG question** (`What is the refund SLA policy?`) and confirm the streamed answer plus
    citations render.
 3. **Ask a database question** (`What is current MRR revenue?`) and confirm tool output appears.

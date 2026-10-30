@@ -296,7 +296,7 @@ export function App() {
     "New chat";
 
   return (
-    <main className={`shell ${inspectorOpen ? "with-inspector" : ""}`}>
+    <main className={`shell ${inspectorOpen && isAdmin ? "with-inspector" : ""}`}>
       <Sidebar
         open={sidebarOpen}
         user={user}
@@ -341,7 +341,7 @@ export function App() {
         onOpenSidebar={() => setSidebarOpen(true)}
       />
       <Inspector
-        open={inspectorOpen}
+        open={inspectorOpen && isAdmin}
         onClose={() => setInspectorOpen(false)}
         route={route}
         traceId={traceId}

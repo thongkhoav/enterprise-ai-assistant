@@ -42,12 +42,12 @@ export function useDocuments(settings: Settings, token: string | null) {
 
       setIsUploading(true);
       for (const file of picked) {
-        setStatus({ text: `Indexing ${file.name}...`, type: "warn" });
+        setStatus({ text: `Adding ${file.name}...`, type: "warn" });
         try {
           const response = await uploadDocument(settings, token, file);
-          const pages = response.page_count ? `${response.page_count} pages, ` : "";
+          const pages = response.page_count ? ` (${response.page_count} pages)` : "";
           setStatus({
-            text: `${response.source} indexed (${pages}${response.chunks_indexed} chunks).`,
+            text: `${response.source}${pages} added to the knowledge base.`,
             type: "ok",
           });
         } catch (error) {

@@ -2,7 +2,7 @@ import { CircleHelp, FileText, LogIn, Quote, ShieldCheck, Sparkles, UserPlus } f
 import { FormEvent, useState } from "react";
 
 import { loginUser, registerUser } from "../api/client";
-import { APP_NAME, APP_TAGLINE } from "../lib/brand";
+import { APP_NAME, APP_SUBTITLE, APP_TAGLINE, GUEST_ACCESS } from "../lib/brand";
 import type { Settings } from "../types";
 
 type AuthScreenProps = {
@@ -50,12 +50,12 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
     setError(null);
     setIsBusy(true);
     try {
-      // A throwaway account per visitor, so demo conversations stay private to that browser.
+      // A throwaway account per visitor, so guest conversations stay private to that browser.
       const id = crypto.randomUUID();
       const token = await registerUser(settings, `guest-${id.slice(0, 12)}@example.com`, id);
       onAuthenticated(token);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not start a demo session.");
+      setError(caught instanceof Error ? caught.message : "Could not sign in as a guest.");
     } finally {
       setIsBusy(false);
     }
@@ -70,7 +70,7 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
           </div>
           <div>
             <h1>{APP_NAME}</h1>
-            <p>RAG assistant with sources</p>
+            <p>{APP_SUBTITLE}</p>
           </div>
         </div>
         <h2>{APP_TAGLINE}.</h2>
@@ -91,7 +91,7 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
             days<span className="cite">2</span>.
           </p>
           <div>
-            <span className="source-n">1</span> sample_policy.md
+            <span className="source-n">1</span> acme_enterprise_support_policy.md
             <span className="source-score">85%</span>
           </div>
         </div>
@@ -99,15 +99,8 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
 
       <section className="auth-panel">
         <div className="auth-card">
-          <h3>Try it in one click</h3>
-          <p className="muted">No sign-up needed. You get a private guest session.</p>
-
-          <button type="button" className="primary-lg" disabled={isBusy} onClick={handleGuest}>
-            <Sparkles size={18} />
-            {isBusy ? "Starting..." : "Try the demo"}
-          </button>
-
-          <div className="divider">or {mode === "login" ? "sign in" : "create an account"}</div>
+          <h3>{mode === "login" ? "Sign in" : "Create your account"}</h3>
+          <p className="muted">Use your work email.</p>
 
           <form onSubmit={handleSubmit}>
             {mode === "register" && (
@@ -142,11 +135,21 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
 
             {error && <p className="status error">{error}</p>}
 
-            <button type="submit" className="secondary" disabled={isBusy}>
+            <button type="submit" className="primary-lg" disabled={isBusy}>
               {mode === "login" ? <LogIn size={17} /> : <UserPlus size={17} />}
               {mode === "login" ? "Sign in" : "Create account"}
             </button>
           </form>
+
+          {GUEST_ACCESS && (
+            <>
+              <div className="divider">or</div>
+              <button type="button" className="secondary" disabled={isBusy} onClick={handleGuest}>
+                <Sparkles size={17} />
+                {isBusy ? "Signing in..." : "Continue as guest"}
+              </button>
+            </>
+          )}
 
           <p className="auth-switch">
             {mode === "login" ? "No account yet?" : "Already have an account?"}{" "}
