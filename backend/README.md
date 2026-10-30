@@ -63,15 +63,15 @@ In another terminal:
 make seed
 ```
 
-This indexes `docs/sample_policy.md` plus all Markdown files under `docs/seed/`.
+This indexes every Markdown, PDF and DOCX file under `docs/seed/`.
 
 Or upload your own document:
 
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
   -H "Authorization: Bearer dev-secret" \
-  -F "file=@docs/sample_policy.md" \
-  -F "source=sample_policy.md"
+  -F "file=@docs/demo_upload/acme_parental_leave_policy_2026.pdf" \
+  -F "source=acme_parental_leave_policy_2026.pdf"
 ```
 
 ## Chat

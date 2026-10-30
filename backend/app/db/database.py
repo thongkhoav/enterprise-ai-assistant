@@ -37,6 +37,7 @@ def get_engine() -> AsyncEngine:
 _ADDED_COLUMNS = (
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'member'",
     "ALTER TABLE messages ADD COLUMN IF NOT EXISTS suggestions JSON",
+    "ALTER TABLE support_requests ADD COLUMN IF NOT EXISTS user_name VARCHAR",
 )
 
 

@@ -9,9 +9,10 @@ import {
   Database,
   ExternalLink,
   FilePlus2,
-  FileText,
   Hash,
   Headset,
+  HeartPulse,
+  Laptop,
   LoaderCircle,
   Mail,
   Menu,
@@ -19,7 +20,7 @@ import {
   PanelRight,
   Paperclip,
   Phone,
-  ShieldQuestion,
+  Plane,
   Sparkles,
   TicketCheck,
   TriangleAlert,
@@ -46,7 +47,7 @@ type ChatConsoleProps = {
   documentCount: number;
   uploadStatus: UploadStatus | null;
   inspectorOpen: boolean;
-  /** Only knowledge base admins may add documents. */
+  /** Only knowledge base admins may add documents and see the retrieval trace. */
   canUpload: boolean;
   requests: SupportRequest[];
   channels: SupportChannel[];
@@ -59,28 +60,28 @@ type ChatConsoleProps = {
 
 const SUGGESTIONS = [
   {
-    icon: FileText,
-    kind: "From the docs",
+    icon: HeartPulse,
+    kind: "Benefits",
     tone: "blue",
-    text: "What service credit do we get if uptime drops to 98.5%?",
+    text: "If I earn $90,000 and put 6% in my 401(k), how much does Acme add?",
   },
   {
-    icon: ShieldQuestion,
-    kind: "Not in the docs",
+    icon: Plane,
+    kind: "Travel",
     tone: "amber",
-    text: "What is our parental leave policy?",
+    text: "What is the hotel limit in London?",
   },
   {
-    icon: Database,
-    kind: "Live data tool",
+    icon: Laptop,
+    kind: "IT help",
     tone: "green",
-    text: "What is our current MRR?",
+    text: "My VPN won't connect. What should I try?",
   },
   {
     icon: TicketCheck,
-    kind: "Action",
+    kind: "IT request",
     tone: "violet",
-    text: "Create a high priority ticket for a failed enterprise import.",
+    text: "Create a high priority ticket: my laptop screen is cracked.",
   },
 ];
 
@@ -163,15 +164,17 @@ export function ChatConsole({
             {documentCount} documents indexed
           </p>
         </div>
-        <button
-          type="button"
-          className={`toggle ${inspectorOpen ? "on" : ""}`}
-          onClick={onToggleInspector}
-          title="Show retrieval trace"
-        >
-          <PanelRight size={16} />
-          <span>Trace</span>
-        </button>
+        {canUpload && (
+          <button
+            type="button"
+            className={`toggle ${inspectorOpen ? "on" : ""}`}
+            onClick={onToggleInspector}
+            title="Show retrieval trace"
+          >
+            <PanelRight size={16} />
+            <span>Trace</span>
+          </button>
+        )}
       </header>
 
       <div className="messages" ref={scrollRef}>
@@ -420,8 +423,9 @@ function AssistantMessage({
               {citations.length} source{citations.length === 1 ? "" : "s"}
             </span>
           )}
-          {message.answerMode === "extractive" && <span>offline extractive mode</span>}
-          {message.answerMode === "fallback" && <span>LLM unavailable, quoted from the sources</span>}
+          {message.answerMode !== undefined && message.answerMode !== "llm" && (
+            <span>Quoted directly from the sources</span>
+          )}
         </div>
       )}
 

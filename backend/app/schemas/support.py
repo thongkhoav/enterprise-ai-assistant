@@ -23,6 +23,7 @@ class SupportRequestPublic(BaseModel):
     status: str
     question: str
     user_email: str
+    user_name: str | None = None
     conversation_id: str | None = None
     message_id: str | None = None
     reply: str | None = None

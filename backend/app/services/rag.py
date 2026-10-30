@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.services.vector_store import VectorStore
 
-NO_ANSWER = "I don't know. The indexed documents don't cover that question."
+NO_ANSWER = "I don't know. Our documents don't cover that question yet."
 
 # gpt-4.1-mini misread banded rules (e.g. which service-credit tier 98.5% uptime falls in)
 # in 5 of 6 runs on the seed contract; gpt-4.1 got all 6 right at a few tenths of a cent more.

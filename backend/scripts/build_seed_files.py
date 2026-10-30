@@ -4,9 +4,9 @@ The generated files are committed, so this only needs to run after editing the t
 
     uv run --with reportlab python scripts/build_seed_files.py
 
-PDFs get one section group per page so answers can cite page numbers. The security
-whitepaper goes to docs/demo_upload/ and is not seeded: it is the file to drag into the chat
-when demoing upload ("I don't know" before, a cited answer after).
+PDFs get one section group per page so answers can cite page numbers. The parental leave
+policy goes to docs/demo_upload/ and is not seeded: it is the file an admin adds when an
+employee asks about parental leave ("I don't know" before, a cited answer after).
 """
 
 from pathlib import Path
@@ -33,9 +33,9 @@ MSA = {
                     "Premium and Strategic plans. Where an Order Form and this Agreement conflict, "
                     "the Order Form controls for that order only.",
                     "Acme provides the subscribed services, standard support for the purchased "
-                    "plan, and the documentation published at docs.acme.example. Professional "
-                    "services such as custom integrations are ordered separately under a "
-                    "statement of work.",
+                    "plan, and the product documentation published in the Acme help center. "
+                    "Professional services such as custom integrations are ordered separately "
+                    "under a statement of work.",
                 ],
             ),
             (
@@ -46,7 +46,8 @@ MSA = {
                     "signed for 24 or 36 months.",
                     "Subscriptions renew automatically for successive 12-month terms unless either "
                     "party gives written notice of non-renewal at least 60 days before the end of "
-                    "the current term. Notice sent by email to legal@acme.example is sufficient.",
+                    "the current term. Notice sent by email to the legal contact on the Order Form "
+                    "is sufficient.",
                     "Acme may increase fees at renewal by no more than 7 percent over the prior "
                     "term, and must give at least 90 days written notice of any increase.",
                 ],
@@ -81,7 +82,7 @@ MSA = {
                     "monitoring of the production API and web application.",
                     "Scheduled maintenance is excluded from downtime. Maintenance runs on Sundays "
                     "between 02:00 and 04:00 UTC and is announced at least 72 hours in advance on "
-                    "status.acme.example. Downtime caused by the customer, force majeure or "
+                    "the Acme status page. Downtime caused by the customer, force majeure or "
                     "third-party networks outside Acme's control is also excluded.",
                     "If monthly uptime falls below the commitment, the customer receives a service "
                     "credit on its next invoice according to these tiers.",
@@ -248,12 +249,12 @@ HANDBOOK = {
             (
                 "Security Basics",
                 [
-                    "Report a lost or stolen device to IT within one hour at it@acme.example, so "
-                    "the device can be locked and wiped. Never store customer data on personal "
-                    "devices or personal cloud accounts.",
+                    "Report a lost or stolen device to IT within one hour through the IT "
+                    "portal, so the device can be locked and wiped. Never store customer data on "
+                    "personal devices or personal cloud accounts.",
                     "All employees complete security awareness training when they join and every "
-                    "year after that. Forward suspected phishing emails to phishing@acme.example "
-                    "instead of clicking links in them.",
+                    "year after that. Report suspected phishing with the Report Phishing button in "
+                    "Gmail instead of clicking links in the email.",
                 ],
             ),
         ],
@@ -274,8 +275,8 @@ HANDBOOK = {
                 [
                     "Treat colleagues, customers and partners with respect. Harassment and "
                     "discrimination are not tolerated. Report concerns to your manager, to People "
-                    "Operations, or anonymously through the ethics hotline at "
-                    "ethics.acme.example. Acme does not allow retaliation against anyone who "
+                    "Operations, or anonymously through the ethics hotline linked in the HR "
+                    "portal. Acme does not allow retaliation against anyone who "
                     "reports a concern in good faith.",
                 ],
             ),
@@ -283,111 +284,248 @@ HANDBOOK = {
     ],
 }
 
-SECURITY_WHITEPAPER = {
-    "title": "Acme Security Whitepaper",
-    "subtitle": "How Acme protects customer data, October 2026",
+BENEFITS = {
+    "title": "Acme Benefits Guide 2026",
+    "subtitle": "United States employees, People Operations",
     "pages": [
         [
             (
-                "Encryption",
+                "Who This Guide Covers",
                 [
-                    "Customer data is encrypted at rest with AES-256 and in transit with TLS 1.2 "
-                    "or higher. Encryption keys are managed in AWS KMS and rotated every 90 days. "
-                    "Strategic customers can bring their own key (BYOK), which they can revoke "
-                    "at any time to make their data unreadable.",
+                    "This guide describes the 2026 benefits for full-time Acme employees in the "
+                    "United States. Benefits start on your first day of employment. Employees in "
+                    "other countries receive local benefits described in their country addendum.",
                 ],
             ),
             (
-                "Certifications",
+                "Medical Plans",
                 [
-                    "Acme holds a SOC 2 Type II report covering security, availability and "
-                    "confidentiality, renewed every 12 months. Acme has been ISO/IEC 27001 "
-                    "certified since 2025. Customers can request the latest SOC 2 report under "
-                    "NDA through their account manager.",
-                ],
-            ),
-        ],
-        [
-            (
-                "Backups and Recovery",
-                [
-                    "Production databases are backed up every 6 hours and backups are kept for 35 "
-                    "days. Backups are encrypted and stored in a second availability zone in the "
-                    "same region as the customer data.",
-                    "Acme's recovery point objective (RPO) is 6 hours and its recovery time "
-                    "objective (RTO) is 4 hours. Disaster recovery is tested twice a year, and "
-                    "the results are summarised in the SOC 2 report.",
+                    "Acme offers two medical plans through Aetna: the Acme PPO and the Acme HDHP "
+                    "with a health savings account (HSA). Both plans use the same national "
+                    "network and cover preventive care at 100 percent.",
+                    "Acme pays 90 percent of the monthly premium for employees and 75 percent for "
+                    "spouses, domestic partners and children. The PPO has a 500 USD individual "
+                    "deductible; the HDHP has a 1,700 USD individual deductible.",
                 ],
             ),
             (
-                "Testing",
+                "Dental and Vision",
                 [
-                    "An independent firm runs a penetration test of the platform every year. Acme "
-                    "also runs a private bug bounty program and fixes critical findings within "
-                    "7 days and high findings within 30 days.",
+                    "Dental coverage through Delta Dental and vision coverage through VSP are "
+                    "free for employees. Acme pays 50 percent of the dental and vision premium "
+                    "for dependents. Vision covers one eye exam and up to 200 USD for glasses or "
+                    "contact lenses every 12 months.",
                 ],
             ),
         ],
         [
             (
-                "Employee Access",
+                "401(k) Retirement Plan",
                 [
-                    "Employees sign in with single sign-on and hardware security keys. Access to "
-                    "production systems is granted just in time, expires after 8 hours, and is "
-                    "logged for audit. Access reviews run every quarter.",
+                    "Acme matches 100 percent of your 401(k) contributions up to 4 percent of "
+                    "your base salary. The match is paid every payroll and vests immediately. "
+                    "You can enroll, change your contribution or stop at any time in Fidelity "
+                    "NetBenefits; changes apply from the next payroll.",
+                    "New employees are enrolled automatically at a 3 percent contribution after "
+                    "30 days unless they choose a different rate or opt out.",
+                ],
+            ),
+            (
+                "Health Savings Account",
+                [
+                    "Employees on the Acme HDHP receive an Acme HSA contribution of 750 USD per "
+                    "year for individual coverage or 1,500 USD per year for family coverage, "
+                    "paid in equal amounts each payroll. The HSA belongs to you and stays with "
+                    "you if you leave Acme.",
+                ],
+            ),
+            (
+                "Life and Disability Insurance",
+                [
+                    "Acme provides life insurance of two times your base salary, up to 500,000 "
+                    "USD, at no cost. Short-term disability pays 70 percent of base salary for "
+                    "up to 12 weeks after a 7-day waiting period. Long-term disability pays 60 "
+                    "percent of base salary after 90 days.",
+                ],
+            ),
+        ],
+        [
+            (
+                "Wellbeing",
+                [
+                    "Every employee receives a wellness stipend of 75 USD per month, paid through "
+                    "payroll, for gym memberships, fitness classes, meditation apps or sports "
+                    "equipment. No receipts are needed.",
+                    "The Employee Assistance Program (EAP) through Lyra offers 8 free counseling "
+                    "sessions per person per year, for employees and their family members. Lyra "
+                    "is available 24/7 and sessions are confidential; Acme never sees who uses it.",
+                    "The commuter benefit lets office-based employees pay for transit and parking "
+                    "with up to 315 USD per month of pre-tax salary.",
+                ],
+            ),
+            (
+                "Enrolling and Making Changes",
+                [
+                    "Choose your benefits in Workday within 30 days of your start date. If you "
+                    "do not choose, you are enrolled in the Acme PPO for yourself only.",
+                    "Open enrollment for 2027 runs from November 3 to November 17, 2026. Outside "
+                    "open enrollment you can change your plans only within 30 days of a "
+                    "qualifying life event, such as marriage, a new dependent or loss of other "
+                    "coverage.",
+                    "Questions about benefits go to People Operations through the HR portal.",
                 ],
             ),
         ],
     ],
 }
 
-PRICING = {
-    "title": "Acme Pricing and Plans 2026",
+IT_HELP_DESK = {
+    "title": "Acme IT Help Desk Guide",
     "sections": [
         (
-            "Plans",
+            "Getting Help",
             [
-                "Starter costs 29 USD per user per month and supports up to 10 users. It includes "
-                "email support and imports of up to 5 GB per month.",
-                "Premium costs 79 USD per user per month with a minimum of 10 seats. It includes "
-                "business-hours support, priority ticket routing, the secure import portal, "
-                "single sign-on, and a 99.9 percent uptime commitment.",
-                "Strategic is priced per contract, starting at 60,000 USD per year. It adds a "
-                "named customer success manager, quarterly business reviews, expedited refund "
-                "handling, EU data residency, and a 99.95 percent uptime commitment.",
+                "Open a ticket in the IT portal or ask in the #it-help Slack channel. The help "
+                "desk is staffed Monday to Friday from 08:00 to 20:00 in the US Eastern and "
+                "Central European time zones.",
+                "Response targets depend on priority. P1, when you cannot work at all, gets a "
+                "response within 30 minutes. P2, when something important is broken but you can "
+                "still work, gets a response within 4 business hours. P3 requests and questions "
+                "get a response within 2 business days.",
+                "Outside help desk hours, use the Urgent option in the IT portal for P1 issues. "
+                "It pages the on-call IT engineer.",
             ],
         ),
         (
-            "Discounts",
+            "Passwords and Multi-Factor Authentication",
             [
-                "Annual billing saves 15 percent compared with monthly billing. Registered "
-                "nonprofits and schools receive 30 percent off Starter and Premium. Discounts do "
-                "not stack; the larger discount applies.",
+                "Acme uses Okta for single sign-on. Passwords must be at least 14 characters "
+                "and are changed every 12 months, or immediately if you suspect someone knows "
+                "yours.",
+                "To reset a forgotten password, click Need help signing in on the Okta page and "
+                "follow the self-service steps with Okta Verify. If you lost the phone with Okta "
+                "Verify, the help desk verifies your identity on a video call before resetting "
+                "your factors.",
+                "Multi-factor authentication is required for every account. Use Okta Verify "
+                "push or a YubiKey; SMS codes are not allowed.",
             ],
         ),
         (
-            "Usage and Overages",
+            "VPN",
             [
-                "Every plan includes 1 million API calls per month. Additional API calls cost "
-                "0.40 USD per 1,000 calls. Storage above the plan allowance costs 0.10 USD per GB "
-                "per month. Overages are billed monthly in arrears.",
+                "The GlobalProtect VPN is required for internal tools such as the admin console, "
+                "Grafana and the staging environment. It is not needed for Google Workspace, "
+                "Slack, Zoom or Workday.",
+                "Install GlobalProtect from the Self Service app on your Mac and sign in with "
+                "Okta. If the VPN will not connect, check that your Mac's date and time are set "
+                "automatically, quit and reopen GlobalProtect, and switch to another network. If "
+                "it still fails, open a P2 ticket with a screenshot of the error.",
             ],
         ),
         (
-            "Add-ons",
+            "Laptops and Equipment",
             [
-                "Advanced Analytics costs 12 USD per user per month. Audit Log Export costs 2,000 "
-                "USD per year and is included in Strategic. A sandbox environment costs 500 USD "
-                "per month.",
+                "Laptops are refreshed every three years. The IT portal shows when your laptop "
+                "is due and sends the new one five business days before the swap.",
+                "If your laptop is damaged, open a P2 ticket. Office-based employees get a "
+                "loaner laptop the same day; remote employees receive a replacement within two "
+                "business days.",
+                "Report a lost or stolen laptop or phone within one hour as a P1 ticket, so IT "
+                "can lock and wipe it.",
             ],
         ),
         (
-            "Trials",
+            "Software Requests",
             [
-                "Free trials last 14 days and include Premium features for up to 5 users. An "
-                "account executive can extend a trial once, to a maximum of 30 days.",
+                "Apps in the Self Service catalog are pre-approved and install immediately. To "
+                "request anything else, open a software request in the IT portal. It needs "
+                "manager approval and a security review, which takes up to five business days.",
+                "Do not buy software licences with a corporate card or expense them without IT "
+                "approval, even for free trials that ask for a card.",
             ],
         ),
+        (
+            "Office Wi-Fi",
+            [
+                "Acme offices have two Wi-Fi networks. Employees connect laptops and phones to "
+                "the staff network, Acme-Staff, and sign in with Okta. Acme-Staff reaches office "
+                "printers and internal tools without the VPN.",
+                "Visitors, and personal devices that are not enrolled with IT, use the guest "
+                "Wi-Fi network, Acme-Guest. Reception gives out the guest Wi-Fi password, which "
+                "changes every day. The guest network is internet-only and cannot reach "
+                "printers or internal tools.",
+            ],
+        ),
+        (
+            "Printing",
+            [
+                "Printers use badge release: send your document to Acme-Print, then tap your "
+                "badge on any office printer to print it. Print jobs are deleted after 24 "
+                "hours if nobody releases them.",
+            ],
+        ),
+    ],
+}
+
+PARENTAL_LEAVE = {
+    "title": "Acme Parental Leave Policy",
+    "subtitle": "Effective January 1, 2026, People Operations",
+    "pages": [
+        [
+            (
+                "Purpose",
+                [
+                    "Acme wants every parent to have time to bond with a new child without "
+                    "worrying about pay. This policy applies to all full-time employees and "
+                    "replaces the parental leave section of earlier handbooks.",
+                ],
+            ),
+            (
+                "Eligibility",
+                [
+                    "Employees are eligible after 90 days of employment. The policy covers the "
+                    "birth of a child, adoption, foster placement and surrogacy, and applies to "
+                    "every parent regardless of gender.",
+                ],
+            ),
+            (
+                "Paid Leave",
+                [
+                    "Eligible employees receive 16 weeks of parental leave at 100 percent of base "
+                    "salary. Leave can be taken in one block or in up to two blocks, and must be "
+                    "used within 12 months of the birth or placement.",
+                    "Birthing parents may start their leave up to 2 weeks before the due date, "
+                    "and those weeks count toward the 16 weeks. Where local law gives more leave "
+                    "or higher pay, the local law applies.",
+                ],
+            ),
+        ],
+        [
+            (
+                "Requesting Leave",
+                [
+                    "Tell your manager and submit a parental leave request in Workday at least 8 "
+                    "weeks before the planned start date. For adoption or foster placement, "
+                    "submit the request as soon as you know the date. People Operations confirms "
+                    "the request within 3 business days.",
+                ],
+            ),
+            (
+                "During Your Leave",
+                [
+                    "Health, dental and vision coverage, the 401(k) match and the wellness "
+                    "stipend continue during leave. PTO keeps accruing as usual.",
+                ],
+            ),
+            (
+                "Returning to Work",
+                [
+                    "Your role and pay are protected while you are on leave. After returning, you "
+                    "may work a 60 percent schedule at full pay for up to 4 weeks to ease back "
+                    "in. Agree on the schedule with your manager before your leave ends.",
+                ],
+            ),
+        ],
     ],
 }
 
@@ -430,6 +568,7 @@ def build_docx(document: dict, path: Path) -> None:
 if __name__ == "__main__":
     build_pdf(MSA, ROOT / "docs/seed/acme_master_service_agreement.pdf")
     build_pdf(HANDBOOK, ROOT / "docs/seed/acme_employee_handbook.pdf")
-    build_pdf(SECURITY_WHITEPAPER, ROOT / "docs/demo_upload/acme_security_whitepaper.pdf")
-    build_docx(PRICING, ROOT / "docs/seed/acme_pricing_and_plans.docx")
-    print("Built seed PDFs, the pricing DOCX and the demo upload PDF.")
+    build_pdf(BENEFITS, ROOT / "docs/seed/acme_benefits_guide_2026.pdf")
+    build_docx(IT_HELP_DESK, ROOT / "docs/seed/acme_it_help_desk_guide.docx")
+    build_pdf(PARENTAL_LEAVE, ROOT / "docs/demo_upload/acme_parental_leave_policy_2026.pdf")
+    print("Built the seed PDFs, the IT help desk DOCX and the parental leave policy.")
