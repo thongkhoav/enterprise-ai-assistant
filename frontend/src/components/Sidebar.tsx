@@ -262,13 +262,10 @@ export function Sidebar({
       )}
 
       <div className="sidebar-footer">
-        <div className="user-avatar">{isGuest ? "G" : (user?.email[0] || "?").toUpperCase()}</div>
-        <div className="user-meta">
+        <div className="user-avatar">{isGuest ? "G" : initials(user)}</div>
+        <div className="user-meta" title={isGuest ? undefined : user?.email}>
           <strong>{isGuest ? "Guest" : user?.full_name || user?.email || ""}</strong>
-          <span>
-            {isAdmin ? "Knowledge admin" : "Employee"}
-            {isGuest ? "" : ` · ${user?.email || ""}`}
-          </span>
+          <span>{isAdmin ? "Knowledge admin" : "Employee"}</span>
         </div>
         <button type="button" className="icon-button ghost" title="Sign out" onClick={onLogout}>
           <LogOut size={16} />
@@ -290,7 +287,8 @@ function InboxItem({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const docs = request.kind === "docs";
-  const who = request.user_email.startsWith("guest-") ? "Guest" : request.user_email;
+  const who =
+    request.user_name || (request.user_email.startsWith("guest-") ? "Guest" : request.user_email);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -345,6 +343,16 @@ function fileLabel(source: string): string {
 function fileKind(source: string): string {
   const extension = source.split(".").pop()?.toLowerCase() || "";
   return ["pdf", "docx", "md", "txt"].includes(extension) ? extension : "file";
+}
+
+function initials(user: AuthUser | null): string {
+  const name = user?.full_name?.trim();
+  if (!name) return (user?.email[0] || "?").toUpperCase();
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
 }
 
 function ago(value: string): string {

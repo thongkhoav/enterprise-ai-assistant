@@ -98,6 +98,7 @@ class SupportRequest(SQLModel, table=True):
     question: str
     user_id: str = Field(index=True, foreign_key="users.id")
     user_email: str
+    user_name: str | None = None
     conversation_id: str | None = Field(default=None, foreign_key="conversations.id")
     message_id: str | None = None
     reply: str | None = None

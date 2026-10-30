@@ -110,10 +110,7 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 make seed
 ```
 
-This indexes:
-
-- `docs/seed/acme_enterprise_support_policy.md`
-- every Markdown file under `docs/seed/`
+This indexes every Markdown, PDF and DOCX file under `docs/seed/`.
 
 Expected output should show multiple documents and chunks, for example:
 
@@ -157,8 +154,8 @@ Upload:
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
   -H "Authorization: Bearer dev-secret" \
-  -F "file=@docs/seed/acme_enterprise_support_policy.md" \
-  -F "source=acme_enterprise_support_policy.md"
+  -F "file=@docs/demo_upload/acme_parental_leave_policy_2026.pdf" \
+  -F "source=acme_parental_leave_policy_2026.pdf"
 ```
 
 Streaming chat:

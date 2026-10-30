@@ -87,13 +87,25 @@ deploy from starting with no documents.
 
 ## Sample Data
 
-`make seed` indexes 11 documents for a fictional SaaS company, Acme: a 5-page master service
-agreement and a 5-page employee handbook (PDF, so answers cite page numbers), a pricing sheet
-(DOCX), release notes and six support runbooks (Markdown). The database tool serves live-looking
-metrics: revenue, customers, employees, SLA, uptime, NPS and sales pipeline.
+`make seed` indexes 7 internal documents for a fictional company, Acme, so the assistant works
+as an employee help desk for HR and IT questions:
 
-`backend/docs/demo_upload/acme_security_whitepaper.pdf` is deliberately not seeded. Ask
-`What is the RTO and RPO?` first ("I don't know"), drop the PDF onto the chat, then ask again.
+| Document | Format | Covers |
+|---|---|---|
+| `acme_employee_handbook.pdf` | PDF, 5 pages | Working hours, PTO, sick days, expenses, travel, equipment |
+| `acme_benefits_guide_2026.pdf` | PDF, 3 pages | Medical, dental, 401(k) match, HSA, wellbeing, enrollment |
+| `acme_it_help_desk_guide.docx` | Word | Ticket priorities, passwords and MFA, VPN, laptops, software |
+| `acme_new_hire_onboarding.md` | Markdown | Before day one, first week, first 30 and 90 days |
+| `acme_access_control_policy.md` | Markdown | Access requests, approvals, sensitive data, audits |
+| `acme_incident_response_runbook.md` | Markdown | Severity levels, triage, communication, reviews |
+| `acme_master_service_agreement.pdf` | PDF, 5 pages | Customer contract: renewal, uptime credits, data protection |
+
+The database tool serves live-looking company metrics: revenue, customers, employees, SLA,
+uptime, NPS and sales pipeline.
+
+`backend/docs/demo_upload/acme_parental_leave_policy_2026.pdf` is deliberately not seeded. Ask
+`How many weeks of parental leave do I get?` first ("I don't know"), add the PDF as an admin,
+then ask again.
 
 The PDF and DOCX files are generated from `backend/scripts/build_seed_files.py`
 (`uv run --with reportlab python scripts/build_seed_files.py`).
@@ -102,24 +114,30 @@ The PDF and DOCX files are generated from `backend/scripts/build_seed_files.py`
 
 1. Start Postgres (`docker compose up -d db` in `backend/`), the backend and the frontend.
 2. Run `make seed` in `backend/`, or switch to Admin and drop files onto the chat.
-3. Click "Continue as guest", then ask: `What service credit do we get if monthly uptime drops to 98.5%?`
-   and click the `[1]` citation (contract PDF, page 3).
-4. Ask something the docs do not cover: `What is our parental leave policy?` ("I don't know").
-   Click "Request this document", switch to Admin, and reply from the Inbox; the reply shows up
-   in the employee's chat.
-5. Ask: `What is our current MRR?` (database tool, shown as a Live data card).
-6. Ask: `Create a high priority ticket for a failed enterprise import.` (ticket tool).
+3. Sign in as an employee and ask:
+   `If I earn $90,000 and put 6% in my 401(k), how much does Acme add?`
+   and click the `[1]` citation (benefits guide, page 2).
+4. Ask something the docs do not cover: `How many weeks of parental leave do I get?`
+   ("I don't know"). Click "Request this document". As an admin, add
+   `acme_parental_leave_policy_2026.pdf` and reply from the Inbox; the reply shows up in the
+   employee's chat, and asking again gives a cited answer.
+5. Ask: `How many employees are in engineering?` (database tool, shown as a Live data card).
+6. Ask: `Create a high priority ticket: my laptop screen is cracked.` (ticket tool).
+
+Admins are the accounts listed in `ADMIN_EMAILS`. For a quick local try, set
+`DEMO_ROLE_SWITCH=true` and use the "View as" switch with a guest account.
 
 More questions to try:
 
 - `What is the hotel limit in London?`
-- `How much notice is needed to stop the subscription from renewing?`
-- `Do we offer a discount for nonprofits?`
-- `What uptime does the Strategic plan guarantee, and what is our current uptime?`
+- `How many PTO days carry over to next year?`
+- `My VPN won't connect. What should I try?`
+- `How much is the wellness stipend?`
+- `What do I need to finish in my first week?`
 - `What approvals are needed for production data access?`
-- `What is the difference between a credit and a refund?`
+- `What service credit do customers get if uptime drops to 98.5%?`
 
-`uv run python scripts/run_eval.py` replays the 57 questions in `backend/evals/questions.jsonl`
+`uv run python scripts/run_eval.py` replays the 65 questions in `backend/evals/questions.jsonl`
 against a running backend and reports route and answer-keyword accuracy.
 
 ## Docker Compose

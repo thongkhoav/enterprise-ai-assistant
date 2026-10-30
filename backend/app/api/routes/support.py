@@ -60,6 +60,7 @@ async def create_request(
             question=payload.question.strip(),
             user_id=current_user.id,
             user_email=current_user.email,
+            user_name=current_user.full_name,
             conversation_id=payload.conversation_id,
             message_id=payload.message_id,
         ),

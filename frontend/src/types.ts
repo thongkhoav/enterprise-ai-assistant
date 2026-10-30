@@ -128,6 +128,7 @@ export type SupportRequest = {
   status: "open" | "resolved";
   question: string;
   user_email: string;
+  user_name?: string | null;
   conversation_id?: string | null;
   message_id?: string | null;
   reply?: string | null;

@@ -9,9 +9,10 @@ import {
   Database,
   ExternalLink,
   FilePlus2,
-  FileText,
   Hash,
   Headset,
+  HeartPulse,
+  Laptop,
   LoaderCircle,
   Mail,
   Menu,
@@ -59,10 +60,10 @@ type ChatConsoleProps = {
 
 const SUGGESTIONS = [
   {
-    icon: FileText,
-    kind: "Contracts",
+    icon: HeartPulse,
+    kind: "Benefits",
     tone: "blue",
-    text: "What service credit do we get if uptime drops to 98.5%?",
+    text: "If I earn $90,000 and put 6% in my 401(k), how much does Acme add?",
   },
   {
     icon: Plane,
@@ -71,16 +72,16 @@ const SUGGESTIONS = [
     text: "What is the hotel limit in London?",
   },
   {
-    icon: Database,
-    kind: "Live metrics",
+    icon: Laptop,
+    kind: "IT help",
     tone: "green",
-    text: "What is our current MRR?",
+    text: "My VPN won't connect. What should I try?",
   },
   {
     icon: TicketCheck,
     kind: "IT request",
     tone: "violet",
-    text: "Create a high priority ticket for a failed enterprise import.",
+    text: "Create a high priority ticket: my laptop screen is cracked.",
   },
 ];
 

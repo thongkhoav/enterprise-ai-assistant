@@ -86,12 +86,12 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
         </ul>
         <div className="hero-preview" aria-hidden>
           <p>
-            Refund requests must be acknowledged within 24 business hours
-            <span className="cite">1</span>, and standard refunds are processed within 5 business
-            days<span className="cite">2</span>.
+            Full-time employees get 20 days of paid time off per year
+            <span className="cite">1</span>, and up to 5 unused days carry over to the next year
+            <span className="cite">1</span>.
           </p>
           <div>
-            <span className="source-n">1</span> acme_enterprise_support_policy.md
+            <span className="source-n">1</span> acme_employee_handbook.pdf · p. 2
             <span className="source-score">85%</span>
           </div>
         </div>

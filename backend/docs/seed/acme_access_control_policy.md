@@ -1,6 +1,6 @@
-# Security And Access Runbook
+# Acme Access Control Policy
 
-This runbook defines how Acme teams request, approve, monitor, and revoke access to enterprise
+This policy defines how Acme teams request, approve, monitor, and revoke access to enterprise
 customer systems. It applies to support, engineering, customer success, finance operations, data
 operations, and any contractor who may interact with production data.
 

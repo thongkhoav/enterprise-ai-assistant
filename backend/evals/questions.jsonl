@@ -1,7 +1,3 @@
-{"question":"What is the refund SLA policy?","expected_route":"rag","answer_keywords":["refund"]}
-{"question":"How long does standard refund processing take?","expected_route":"rag","answer_keywords":["refund"]}
-{"question":"What file types are supported for enterprise data imports?","expected_route":"rag","answer_keywords":["import"]}
-{"question":"When should a failed import create a ticket?","expected_route":"rag","answer_keywords":["ticket"]}
 {"question":"Create a ticket for a failed CSV import for customer C-100.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"Open an urgent incident task for production data access misuse.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"What approval is required for production data access?","expected_route":"rag","answer_keywords":["access"]}
@@ -15,43 +11,55 @@
 {"question":"How many employees are in engineering?","expected_route":"database","answer_keywords":["employee"]}
 {"question":"What is the support SLA response time?","expected_route":"database","answer_keywords":["sla"]}
 {"question":"How many SLA breaches happened in the last 7 days?","expected_route":"database","answer_keywords":["sla"]}
-{"question":"Search docs for the secure import portal rule.","expected_route":"rag","answer_keywords":["import"]}
-{"question":"What information is needed for a failed import ticket?","expected_route":"rag","answer_keywords":["ticket"]}
 {"question":"Create a high priority ticket about a critical incident.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"Summarize access control policy for production data.","expected_route":"rag","answer_keywords":["access"]}
-{"question":"What should a CSM do for expedited refund handling?","expected_route":"rag","answer_keywords":["refund"]}
-{"question":"Does the policy mention PDF attachments?","expected_route":"rag","answer_keywords":["pdf"]}
-{"question":"Which customers can use enterprise support?","expected_route":"rag","answer_keywords":["customer"]}
 {"question":"Query database for customer totals.","expected_route":"database","answer_keywords":["customer"]}
 {"question":"Query database for employee distribution.","expected_route":"database","answer_keywords":["employee"]}
 {"question":"Report database SLA status.","expected_route":"database","answer_keywords":["42"]}
 {"question":"Create a task to investigate refund delay.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"Create an issue for upload portal timeout.","expected_route":"ticket","answer_keywords":["ticket"]}
-{"question":"What is the max file size before using secure import portal?","expected_route":"rag","answer_keywords":["100"]}
-{"question":"What is the policy for manager approval?","expected_route":"rag","answer_keywords":["approval"]}
 {"question":"What route should handle database revenue questions?","expected_route":"database","answer_keywords":["revenue"]}
 {"question":"Create a bug for missing customer ID in import logs.","expected_route":"ticket","answer_keywords":["ticket"]}
-{"question":"What plan levels receive enterprise support?","expected_route":"rag","answer_keywords":["enterprise"]}
 {"question":"What does the assistant know about incident response?","expected_route":"rag","answer_keywords":["incident"]}
 {"question":"What approvals are needed for production data access?","expected_route":"rag","answer_keywords":["access"]}
 {"question":"What fields are required for an access request?","expected_route":"rag","answer_keywords":["access"]}
-{"question":"How should failed imports be classified?","expected_route":"rag","answer_keywords":["import"]}
-{"question":"What should a rollback plan include?","expected_route":"rag","answer_keywords":["rollback"]}
 {"question":"What are the roles in an incident response?","expected_route":"rag","answer_keywords":["incident"]}
-{"question":"When does a renewal become high risk?","expected_route":"rag","answer_keywords":["risk"]}
-{"question":"What should a QBR preparation include?","expected_route":"rag","answer_keywords":["qbr"]}
-{"question":"What is the difference between a credit and a refund?","expected_route":"rag","answer_keywords":["refund"]}
-{"question":"Which billing questions should go to legal operations?","expected_route":"rag","answer_keywords":["legal"]}
-{"question":"How is import success rate defined?","expected_route":"rag","answer_keywords":["import"]}
-{"question":"What metrics are used for product reliability?","expected_route":"rag","answer_keywords":["reliability"]}
 {"question":"Create a ticket for suspicious production access.","expected_route":"ticket","answer_keywords":["ticket"]}
 {"question":"What service credit applies if monthly uptime is 98.5%?","expected_route":"rag","answer_keywords":["25"]}
 {"question":"What uptime does the Strategic plan guarantee?","expected_route":"rag","answer_keywords":["99.95"]}
 {"question":"How much notice is needed to stop the subscription from renewing?","expected_route":"rag","answer_keywords":["60 days"]}
 {"question":"How many PTO days do new employees get?","expected_route":"rag","answer_keywords":["20 days"]}
 {"question":"What is the hotel limit in London?","expected_route":"rag","answer_keywords":["400"]}
-{"question":"How much does the Premium plan cost?","expected_route":"rag","answer_keywords":["79"]}
-{"question":"When will API v1 be shut down?","expected_route":"rag","answer_keywords":["march 31, 2027"]}
 {"question":"What is our current uptime?","expected_route":"database","answer_keywords":["99.96"]}
 {"question":"What is our NPS?","expected_route":"database","answer_keywords":["47"]}
 {"question":"How is the sales pipeline looking?","expected_route":"database","answer_keywords":["63"]}
+{"question":"How many unused PTO days carry over to next year?","expected_route":"rag","answer_keywords":["5"]}
+{"question":"When is a doctor's note required for sick leave?","expected_route":"rag","answer_keywords":["three"]}
+{"question":"What is the daily meal limit on international trips?","expected_route":"rag","answer_keywords":["100"]}
+{"question":"How long do I have to submit an expense?","expected_route":"rag","answer_keywords":["30 days"]}
+{"question":"How much is the home office stipend?","expected_route":"rag","answer_keywords":["500"]}
+{"question":"How much is the yearly learning budget?","expected_route":"rag","answer_keywords":["1,500"]}
+{"question":"How much does Acme match on the 401(k)?","expected_route":"rag","answer_keywords":["4"]}
+{"question":"If I earn $90,000 and put 6% in my 401(k), how much does Acme add?","expected_route":"rag","answer_keywords":["3,600"]}
+{"question":"When does the 401(k) match vest?","expected_route":"rag","answer_keywords":["immediately"]}
+{"question":"What share of the medical premium does Acme pay for employees?","expected_route":"rag","answer_keywords":["90"]}
+{"question":"How much does Acme put in the HSA for family coverage?","expected_route":"rag","answer_keywords":["1,500"]}
+{"question":"How much is the wellness stipend?","expected_route":"rag","answer_keywords":["75"]}
+{"question":"How many free counseling sessions does the EAP offer?","expected_route":"rag","answer_keywords":["8"]}
+{"question":"When is open enrollment for 2027 benefits?","expected_route":"rag","answer_keywords":["november"]}
+{"question":"How fast does IT respond to a P1 ticket?","expected_route":"rag","answer_keywords":["30 minutes"]}
+{"question":"How do I reset my Okta password?","expected_route":"rag","answer_keywords":["okta"]}
+{"question":"Are SMS codes allowed for multi-factor authentication?","expected_route":"rag","answer_keywords":["sms"]}
+{"question":"Do I need the VPN for Slack?","expected_route":"rag","answer_keywords":["slack"]}
+{"question":"My VPN won't connect. What should I try?","expected_route":"rag","answer_keywords":["globalprotect"]}
+{"question":"How often are laptops replaced?","expected_route":"rag","answer_keywords":["three years"]}
+{"question":"How quickly do remote employees get a replacement laptop?","expected_route":"rag","answer_keywords":["two business days"]}
+{"question":"How do I request software that is not in Self Service?","expected_route":"rag","answer_keywords":["approval"]}
+{"question":"What is the guest Wi-Fi network called?","expected_route":"rag","answer_keywords":["acme-guest"]}
+{"question":"When is security awareness training due for new hires?","expected_route":"rag","answer_keywords":["7 days"]}
+{"question":"When should I choose my benefits as a new hire?","expected_route":"rag","answer_keywords":["30 days"]}
+{"question":"What service credit do customers get if uptime drops to 98.5%?","expected_route":"rag","answer_keywords":["25"]}
+{"question":"How many weeks of parental leave do I get?","expected_route":"no_answer","answer_keywords":["don't know"]}
+{"question":"What is our remote work policy for pets in the office?","expected_route":"no_answer","answer_keywords":["don't know"]}
+{"question":"Create a high priority ticket: my laptop screen is cracked.","expected_route":"ticket","answer_keywords":["ticket"]}
+{"question":"Open a ticket for VPN access to the staging environment.","expected_route":"ticket","answer_keywords":["ticket"]}
