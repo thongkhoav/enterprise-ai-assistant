@@ -51,6 +51,8 @@ async def test_agent_says_i_dont_know_when_nothing_is_relevant(tmp_path) -> None
     assert result["answer"] == NO_ANSWER
     assert result["route"] == "no_answer"
     assert result["citations"] == []
+    # Offline mode has no model to write follow-ups, so it offers none.
+    assert result["suggestions"] == []
 
 
 async def test_agent_answer_cites_source_passage(tmp_path) -> None:

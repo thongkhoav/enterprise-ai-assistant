@@ -30,9 +30,10 @@ class MessagePublic(BaseModel):
     trace_id: str | None = None
     citations: list[Citation] = []
     tool_results: list[ToolResult] = []
+    suggestions: list[str] = []
     created_at: datetime
 
-    @field_validator("citations", "tool_results", mode="before")
+    @field_validator("citations", "tool_results", "suggestions", mode="before")
     @classmethod
     def _coerce_none_to_list(cls, value: object) -> object:
         return value if value is not None else []

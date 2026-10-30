@@ -1,26 +1,43 @@
 import {
+  FilePlus2,
   FileText,
+  Inbox,
+  LoaderCircle,
   LogOut,
   MessageSquare,
   Plus,
+  Send,
+  ShieldCheck,
   Trash2,
   UploadCloud,
+  UserRound,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { APP_NAME } from "../lib/brand";
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
-import type { AuthUser, ConversationSummary, DocumentSummary } from "../types";
+import type {
+  AuthUser,
+  ConversationSummary,
+  DocumentSummary,
+  SupportRequest,
+  UserRole,
+} from "../types";
 
 type SidebarProps = {
   open: boolean;
   user: AuthUser | null;
   conversations: ConversationSummary[];
   activeConversationId: string | null;
+  /** Admins curate the documents and answer the inbox; members only read the list. */
+  isAdmin: boolean;
   documents: DocumentSummary[];
   uploadStatus: UploadStatus | null;
   isUploading: boolean;
+  requests: SupportRequest[];
+  onResolveRequest: (requestId: string, reply: string) => Promise<void>;
+  onSwitchRole: (role: UserRole) => void;
   onClose: () => void;
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
@@ -30,16 +47,20 @@ type SidebarProps = {
   onLogout: () => void;
 };
 
-type Tab = "chats" | "docs";
+type Tab = "chats" | "docs" | "inbox";
 
 export function Sidebar({
   open,
   user,
   conversations,
   activeConversationId,
+  isAdmin,
   documents,
   uploadStatus,
   isUploading,
+  requests,
+  onResolveRequest,
+  onSwitchRole,
   onClose,
   onNewChat,
   onSelectConversation,
@@ -51,6 +72,9 @@ export function Sidebar({
   const [tab, setTab] = useState<Tab>("chats");
   const totalChunks = documents.reduce((sum, item) => sum + item.chunks, 0);
   const isGuest = user?.email.startsWith("guest-");
+  const openRequests = requests.filter((request) => request.status === "open");
+  const resolvedCount = requests.length - openRequests.length;
+  const activeTab = tab === "inbox" && !isAdmin ? "chats" : tab;
 
   return (
     <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Navigation">
@@ -77,8 +101,8 @@ export function Sidebar({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "chats"}
-            className={tab === "chats" ? "active" : ""}
+            aria-selected={activeTab === "chats"}
+            className={activeTab === "chats" ? "active" : ""}
             onClick={() => setTab("chats")}
           >
             Chats
@@ -87,18 +111,48 @@ export function Sidebar({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "docs"}
-            className={tab === "docs" ? "active" : ""}
+            aria-selected={activeTab === "docs"}
+            className={activeTab === "docs" ? "active" : ""}
             onClick={() => setTab("docs")}
           >
-            Documents
+            Docs
             <span>{documents.length}</span>
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "inbox"}
+              className={`${activeTab === "inbox" ? "active" : ""} ${openRequests.length ? "alert" : ""}`}
+              onClick={() => setTab("inbox")}
+            >
+              Inbox
+              <span>{openRequests.length}</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="sidebar-body">
-        {tab === "chats" ? (
+        {activeTab === "inbox" ? (
+          <div className="inbox">
+            {openRequests.length ? (
+              openRequests.map((request) => (
+                <InboxItem key={request.id} request={request} onResolve={onResolveRequest} />
+              ))
+            ) : (
+              <div className="inbox-empty">
+                <Inbox size={22} />
+                <strong>No open requests</strong>
+                <span>
+                  When the assistant can't help, employees can request a document or ask for a
+                  person. Their requests land here.
+                </span>
+              </div>
+            )}
+            {resolvedCount > 0 && <p className="count">{resolvedCount} resolved</p>}
+          </div>
+        ) : activeTab === "chats" ? (
           conversations.length ? (
             <div className="conversation-list">
               {conversations.map((conversation) => (
@@ -133,20 +187,28 @@ export function Sidebar({
           )
         ) : (
           <div className="knowledge">
-            <label className={`dropzone ${isUploading ? "busy" : ""}`}>
-              <UploadCloud size={22} />
-              <strong>{isUploading ? "Indexing..." : "Upload documents"}</strong>
-              <span>PDF, DOCX, Markdown or text</span>
-              <input
-                type="file"
-                multiple
-                accept={ACCEPTED_FILES}
-                onChange={(event) => {
-                  onUpload(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-            </label>
+            {isAdmin ? (
+              <label className={`dropzone ${isUploading ? "busy" : ""}`}>
+                <UploadCloud size={22} />
+                <strong>{isUploading ? "Indexing..." : "Add documents"}</strong>
+                <span>PDF, DOCX, Markdown or text</span>
+                <input
+                  type="file"
+                  multiple
+                  accept={ACCEPTED_FILES}
+                  onChange={(event) => {
+                    onUpload(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            ) : (
+              <p className="managed-note">
+                <ShieldCheck size={15} />
+                Curated by your knowledge admins. Missing something? Ask, then request it from the
+                answer.
+              </p>
+            )}
             {uploadStatus && <p className={`status ${uploadStatus.type}`}>{uploadStatus.text}</p>}
             <p className="count">
               {documents.length} documents · {totalChunks} chunks indexed
@@ -164,14 +226,16 @@ export function Sidebar({
                       {document.chunks} chunks
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="icon-button ghost"
-                    title="Remove from index"
-                    onClick={() => onDeleteDocument(document.document_id)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="icon-button ghost"
+                      title="Remove from index"
+                      onClick={() => onDeleteDocument(document.document_id)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -179,11 +243,33 @@ export function Sidebar({
         )}
       </div>
 
+      {user?.can_switch_role && (
+        <div className="role-switch" role="radiogroup" aria-label="View the demo as">
+          <span>View as</span>
+          {(["member", "admin"] as const).map((role) => (
+            <button
+              type="button"
+              role="radio"
+              key={role}
+              aria-checked={user.role === role}
+              className={user.role === role ? "active" : ""}
+              onClick={() => user.role !== role && onSwitchRole(role)}
+            >
+              {role === "member" ? <UserRound size={14} /> : <ShieldCheck size={14} />}
+              {role === "member" ? "Employee" : "Admin"}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="sidebar-footer">
         <div className="user-avatar">{isGuest ? "G" : (user?.email[0] || "?").toUpperCase()}</div>
         <div className="user-meta">
           <strong>{isGuest ? "Guest" : user?.full_name || user?.email || ""}</strong>
-          <span>{isGuest ? "Demo session" : user?.email}</span>
+          <span>
+            {isAdmin ? "Knowledge admin" : "Employee"}
+            {isGuest ? " · demo session" : ` · ${user?.email || ""}`}
+          </span>
         </div>
         <button type="button" className="icon-button ghost" title="Sign out" onClick={onLogout}>
           <LogOut size={16} />
@@ -193,9 +279,67 @@ export function Sidebar({
   );
 }
 
+/** One open request in the admin inbox, answered with a reply posted back into the chat. */
+function InboxItem({
+  request,
+  onResolve,
+}: {
+  request: SupportRequest;
+  onResolve: (requestId: string, reply: string) => Promise<void>;
+}) {
+  const [reply, setReply] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const docs = request.kind === "docs";
+  const who = request.user_email.startsWith("guest-") ? "Guest" : request.user_email;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reply.trim()) return;
+    setIsSending(true);
+    setError(null);
+    try {
+      await onResolve(request.id, reply.trim());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not send the reply.");
+      setIsSending(false);
+    }
+  }
+
+  return (
+    <form className="inbox-item" onSubmit={handleSubmit}>
+      <span className={`inbox-kind ${docs ? "docs" : "human"}`}>
+        {docs ? <FilePlus2 size={12} /> : <UserRound size={12} />}
+        {docs ? "Missing document" : "Wants a person"}
+      </span>
+      <strong>{request.question}</strong>
+      <span className="inbox-meta">
+        {who} · {ago(request.created_at)}
+      </span>
+      {docs && <span className="inbox-hint">Add the document under Docs, then let them know.</span>}
+      <textarea
+        rows={2}
+        value={reply}
+        placeholder={docs ? "e.g. Added the policy, ask again." : "Reply in their chat..."}
+        onChange={(event) => setReply(event.target.value)}
+      />
+      {error && <p className="status error">{error}</p>}
+      <button type="submit" className="secondary" disabled={isSending || !reply.trim()}>
+        {isSending ? <LoaderCircle className="spin" size={14} /> : <Send size={14} />}
+        Reply and resolve
+      </button>
+    </form>
+  );
+}
+
 function fileKind(source: string): string {
   const extension = source.split(".").pop()?.toLowerCase() || "";
   return ["pdf", "docx", "md", "txt"].includes(extension) ? extension : "file";
+}
+
+function ago(value: string): string {
+  const time = relativeTime(value);
+  return time === "now" ? "just now" : `${time} ago`;
 }
 
 function relativeTime(value: string): string {

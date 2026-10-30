@@ -38,3 +38,5 @@ class ChatResponse(BaseModel):
     trace_id: str
     latency_ms: int | None = None
     answer_mode: str | None = None
+    message_id: str | None = None
+    suggestions: list[str] = Field(default_factory=list)

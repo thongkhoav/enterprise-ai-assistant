@@ -8,7 +8,13 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db import users as user_repo
 from app.db.database import SessionDep
 from app.db.models import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserPublic
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    RoleUpdate,
+    TokenResponse,
+    UserPublic,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -31,6 +37,7 @@ async def register(
         email=payload.email,
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
+        role="admin" if payload.email.lower() in settings.admin_emails else "member",
     )
     token = create_access_token(settings, subject=user.id)
     return TokenResponse(access_token=token)
@@ -52,6 +59,33 @@ async def login(
     return TokenResponse(access_token=token)
 
 
+def _public(user: User, settings: Settings) -> UserPublic:
+    return UserPublic(
+        **user.model_dump(exclude={"hashed_password"}),
+        can_switch_role=settings.demo_role_switch,
+    )
+
+
 @router.get("/me", response_model=UserPublic)
-async def me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+async def me(
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> UserPublic:
+    return _public(current_user, settings)
+
+
+@router.put("/me/role", response_model=UserPublic)
+async def switch_role(
+    payload: RoleUpdate,
+    session: SessionDep,
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> UserPublic:
+    """Demo only: try the admin and member sides with one account."""
+    if not settings.demo_role_switch:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Roles are managed by an administrator.",
+        )
+    user = await user_repo.set_role(session, current_user, payload.role)
+    return _public(user, settings)

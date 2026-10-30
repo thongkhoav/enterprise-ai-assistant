@@ -1,4 +1,4 @@
-import { CircleHelp, FileText, LogIn, Quote, Sparkles, UploadCloud, UserPlus } from "lucide-react";
+import { CircleHelp, FileText, LogIn, Quote, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 import { loginUser, registerUser } from "../api/client";
@@ -13,9 +13,12 @@ type AuthScreenProps = {
 type Mode = "login" | "register";
 
 const FEATURES = [
-  { icon: UploadCloud, text: "Upload PDFs, Word files or Markdown and ask questions right away" },
   { icon: Quote, text: "Every answer links to the passage and page it came from" },
-  { icon: CircleHelp, text: "Says “I don't know” when the documents don't cover the question" },
+  {
+    icon: CircleHelp,
+    text: "Says “I don't know”, then lets you request the document or ask a person",
+  },
+  { icon: ShieldCheck, text: "Admins curate the PDFs, Word files and wikis; everyone else asks" },
 ];
 
 export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {

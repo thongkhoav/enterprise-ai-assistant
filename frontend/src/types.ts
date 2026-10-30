@@ -1,9 +1,15 @@
-export type Role = "user" | "assistant" | "system";
+export type Role = "user" | "assistant" | "agent" | "system";
+
+export type UserRole = "admin" | "member";
 
 export type ChatMessage = {
   id: string;
+  /** The id the server saved it under; set once the answer is done. */
+  serverId?: string;
+  /** "agent" is a person from the support team replying in the conversation. */
   role: Exclude<Role, "system">;
   content: string;
+  suggestions?: string[];
   route?: string;
   citations?: Citation[];
   latencyMs?: number;
@@ -40,6 +46,13 @@ export type DoneEvent = {
   route: string;
   latency_ms?: number;
   answer_mode?: string;
+  message_id?: string;
+};
+
+export type SuggestionsEvent = {
+  type: "suggestions";
+  questions: string[];
+  message_id?: string;
 };
 
 export type ErrorEvent = {
@@ -52,7 +65,7 @@ export type TokenEvent = {
   text: string;
 };
 
-export type StreamEvent = DoneEvent | TokenEvent | ErrorEvent;
+export type StreamEvent = DoneEvent | TokenEvent | SuggestionsEvent | ErrorEvent;
 
 export type Settings = {
   apiBaseUrl: string;
@@ -62,6 +75,8 @@ export type AuthUser = {
   id: string;
   email: string;
   full_name: string | null;
+  role: UserRole;
+  can_switch_role: boolean;
   created_at: string;
 };
 
@@ -80,6 +95,7 @@ export type ApiMessage = {
   trace_id?: string | null;
   citations: Citation[];
   tool_results: ToolResult[];
+  suggestions?: string[];
   created_at: string;
 };
 
@@ -102,3 +118,25 @@ export type DocumentSummary = {
   chunks: number;
 };
 
+
+export type SupportKind = "docs" | "human";
+
+/** A member asking a person for help: a missing document, or a human reply. */
+export type SupportRequest = {
+  id: string;
+  kind: SupportKind;
+  status: "open" | "resolved";
+  question: string;
+  user_email: string;
+  conversation_id?: string | null;
+  message_id?: string | null;
+  reply?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+};
+
+export type SupportChannel = {
+  kind: string;
+  label: string;
+  href: string;
+};

@@ -64,6 +64,7 @@ async def add_message(
     trace_id: str | None = None,
     citations: list[Any] | None = None,
     tool_results: list[Any] | None = None,
+    suggestions: list[str] | None = None,
 ) -> Message:
     message = Message(
         conversation_id=conversation_id,
@@ -73,6 +74,7 @@ async def add_message(
         trace_id=trace_id,
         citations=citations,
         tool_results=tool_results,
+        suggestions=suggestions,
     )
     session.add(message)
 
@@ -84,6 +86,16 @@ async def add_message(
     await session.commit()
     await session.refresh(message)
     return message
+
+
+async def set_suggestions(
+    session: AsyncSession, *, message_id: str, suggestions: list[str]
+) -> None:
+    message = await session.get(Message, message_id)
+    if message is not None:
+        message.suggestions = suggestions
+        session.add(message)
+        await session.commit()
 
 
 async def rename_conversation(

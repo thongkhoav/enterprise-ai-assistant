@@ -38,8 +38,8 @@ async def _resolve_conversation_id(
     return conversation.id
 
 
-async def _save_answer(session: AsyncSession, result: dict) -> None:
-    await conversation_repo.add_message(
+async def _save_answer(session: AsyncSession, result: dict) -> str:
+    message = await conversation_repo.add_message(
         session,
         conversation_id=result["conversation_id"],
         role="assistant",
@@ -48,7 +48,9 @@ async def _save_answer(session: AsyncSession, result: dict) -> None:
         trace_id=result["trace_id"],
         citations=result["citations"],
         tool_results=result["tool_results"],
+        suggestions=result.get("suggestions"),
     )
+    return message.id
 
 
 @router.post("", response_model=ChatResponse)
@@ -65,8 +67,8 @@ async def chat(
     )
 
     result = await agent.run(request, conversation_id)
-    await _save_answer(session, result)
-    return ChatResponse(**result)
+    message_id = await _save_answer(session, result)
+    return ChatResponse(**result, message_id=message_id)
 
 
 @router.post("/stream")
@@ -83,14 +85,22 @@ async def stream_chat(
     )
 
     async def events() -> AsyncIterator[str]:
+        message_id = None
         try:
             async for event in agent.stream(request, conversation_id):
+                # The request-scoped session may already be closed once streaming starts,
+                # so the answer is saved with a session of its own.
                 if event["type"] == "done":
-                    # The request-scoped session may already be closed once streaming
-                    # starts, so the answer is saved with a session of its own.
                     async with AsyncSession(get_engine()) as stream_session:
-                        await _save_answer(stream_session, event)
+                        message_id = await _save_answer(stream_session, event)
                     event = {key: value for key, value in event.items() if key != "answer"}
+                    event["message_id"] = message_id
+                elif event["type"] == "suggestions" and message_id:
+                    async with AsyncSession(get_engine()) as stream_session:
+                        await conversation_repo.set_suggestions(
+                            stream_session, message_id=message_id, suggestions=event["questions"]
+                        )
+                    event["message_id"] = message_id
                 yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
         except Exception as exc:  # surface model/provider failures to the UI
             payload = json.dumps({"type": "error", "detail": str(exc)})

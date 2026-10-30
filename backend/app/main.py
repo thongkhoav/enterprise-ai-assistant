@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_vector_store
-from app.api.routes import auth, chat, conversations, documents, health, tickets
+from app.api.routes import auth, chat, conversations, documents, health, support, tickets
 from app.core.config import get_settings
 from app.db.database import create_db_and_tables
 from app.services.seed import seed_documents
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix="/v1")
     app.include_router(documents.router, prefix="/v1")
     app.include_router(tickets.router, prefix="/v1")
+    app.include_router(support.router, prefix="/v1")
     return app
 
 
