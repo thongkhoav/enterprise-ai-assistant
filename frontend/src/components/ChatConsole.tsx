@@ -689,7 +689,7 @@ type DatabaseResult = {
 };
 
 function databaseResult(toolResults: ToolResult[] | undefined): DatabaseResult | null {
-  const result = toolResults?.find((item) => item.name === "query_fake_database")?.result;
+  const result = toolResults?.find((item) => item.name === "query_metrics")?.result;
   return result && typeof result.table === "string" && result.rows
     ? (result as unknown as DatabaseResult)
     : null;

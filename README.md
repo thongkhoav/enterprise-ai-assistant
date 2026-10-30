@@ -1,9 +1,10 @@
 # Enterprise AI Assistant
 
-Monorepo for an enterprise AI assistant portfolio project: a RAG chatbot that answers from your
-documents and shows the passage (and PDF page) each answer comes from.
+A company knowledge assistant: employees ask HR and IT questions from a widget on the intranet,
+and every answer cites the passage (and PDF page) it comes from. Admins curate the documents and
+answer what the assistant can't.
 
-![Cited answer with the source passage highlighted, and an "I don't know" reply when the documents don't cover the question](docs/demo.jpg)
+![The Ask Acme widget on a company intranet page, answering a 401(k) question with the cited passage highlighted in the benefits guide](docs/demo.jpg)
 
 ## What It Does
 
@@ -18,8 +19,8 @@ documents and shows the passage (and PDF page) each answer comes from.
   can answer, "Talk to a person", and other channels (email, Slack, Teams; `SUPPORT_CHANNELS`).
   An "I don't know" also offers "Request this document".
 - Requests land in the admin Inbox. The admin's reply is posted back into the employee's chat.
-- A LangGraph router sends metric questions to a database tool and "create a ticket" requests to a
-  ticket tool; a trace panel shows route, latency, retrieval scores and tool output.
+- A LangGraph router sends metric questions to a company metrics tool and "create a ticket" requests
+  to a ticket tool; a trace panel shows route, latency, retrieval scores and tool output.
 - "Continue as guest" on the sign-in page creates a private guest session (`VITE_GUEST_ACCESS`).
   With `DEMO_ROLE_SWITCH=true` a "View as Employee / Admin" switch lets visitors try both sides.
   Outside the demo, `ADMIN_EMAILS` decides who registers as an admin.
@@ -85,10 +86,8 @@ npm run dev
 
 Open http://localhost:5173.
 
-Default frontend settings:
-
-- API base URL: `http://localhost:8000`
-- API key: `dev-secret`
+The frontend talks to `VITE_API_BASE_URL` (default `http://localhost:8000`). Sign in or register
+on the first screen; accounts in `ADMIN_EMAILS` register as admins.
 
 ## Models
 
@@ -126,7 +125,7 @@ as an employee help desk for HR and IT questions:
 | `acme_incident_response_runbook.md` | Markdown | Severity levels, triage, communication, reviews |
 | `acme_master_service_agreement.pdf` | PDF, 5 pages | Customer contract: renewal, uptime credits, data protection |
 
-The database tool serves live-looking company metrics: revenue, customers, employees, SLA,
+The metrics tool serves sample company metrics (`backend/app/db/metrics.py`): revenue, customers, employees, SLA,
 uptime, NPS and sales pipeline.
 
 `backend/docs/demo_upload/acme_parental_leave_policy_2026.pdf` is deliberately not seeded. Ask
@@ -147,7 +146,7 @@ The PDF and DOCX files are generated from `backend/scripts/build_seed_files.py`
    ("I don't know"). Click "Request this document". As an admin, add
    `acme_parental_leave_policy_2026.pdf` and reply from the Inbox; the reply shows up in the
    employee's chat, and asking again gives a cited answer.
-5. Ask: `How many employees are in engineering?` (database tool, shown as a Live data card).
+5. Ask: `How many employees are in engineering?` (metrics tool, shown as a Live data card).
 6. Ask: `Create a high priority ticket: my laptop screen is cracked.` (ticket tool).
 
 Admins are the accounts listed in `ADMIN_EMAILS`. For a quick local try, set
@@ -178,9 +177,17 @@ Then open:
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000/docs
 
-## What To Build Next
+## Before a Public Deployment
 
-- Add real login and user sessions.
-- Replace fake database with Postgres.
-- Add a real ticketing integration.
-- Add LangSmith or OpenTelemetry tracing.
+- Set `APP_ENV=production` and a random `JWT_SECRET` (`openssl rand -hex 32`); the API refuses to
+  start with the development secret.
+- Keep `DEMO_ROLE_SWITCH=false` unless the deployment is a throwaway demo: it lets anyone become an
+  admin.
+- Put a rate limit in front of `/v1/chat` and `/v1/auth`, since every question is an LLM call.
+
+## Roadmap
+
+- Single sign-on through the company identity provider (OIDC).
+- A ticketing integration (Jira Service Management, Zendesk) in place of the built-in tickets.
+- Read-only warehouse queries in place of the sample metrics.
+- Alembic migrations, background ingestion and OpenTelemetry or LangSmith tracing.

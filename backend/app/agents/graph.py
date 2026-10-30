@@ -187,7 +187,7 @@ class AgentRunner:
         if state.get("route") == "database":
             results.append(
                 {
-                    "name": "query_fake_database",
+                    "name": "query_metrics",
                     "result": await query_database_tool(state["question"]),
                 }
             )

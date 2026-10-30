@@ -5,11 +5,12 @@ frontend UI. Commands run from the repo root.
 
 The app has three moving parts:
 
-- **Postgres** — stores tickets (the backend creates tables on startup, so it must be running first).
+- **Postgres** — stores users, conversations, tickets and support requests (the backend creates
+  tables on startup, so it must be running first).
 - **Backend** — FastAPI API on `http://localhost:8000`.
 - **Frontend** — Vite + React UI on `http://localhost:5173`.
 
-The default API key is `dev-secret` (`APP_API_KEY` in `backend/.env`).
+Every route except `/health` needs a JWT from `/v1/auth/register` or `/v1/auth/login` (see 4.1).
 
 ---
 
@@ -46,8 +47,8 @@ make seed                  # index sample knowledge into Chroma
 make dev                   # serves http://localhost:8000
 ```
 
-Without `OPENAI_API_KEY` the app still runs: it uses deterministic local embeddings and returns a
-mock answer, so every flow below is testable offline. Tickets still require Postgres.
+Without `OPENAI_API_KEY` the app still runs: answers quote the best-matching source sentences, so
+every flow below is testable offline. Postgres is always required.
 
 ### 2.3 Start the frontend
 
@@ -88,33 +89,44 @@ The eval runner checks route selection and keyword presence against `evals/quest
 
 ## 4. Manual API tests (curl)
 
-All routes except `/health` require the `Authorization: Bearer dev-secret` header.
+### 4.1 Get a token
 
-### 4.1 Health (no auth)
+Set `ADMIN_EMAILS=you@acme.example` in `backend/.env` (and restart) so this account can upload
+documents, then register. Use `/v1/auth/login` with the same body (minus `full_name`) next time.
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@acme.example","password":"choose-a-password","full_name":"Your Name"}' \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')
+```
+
+`/health` needs no token:
 
 ```bash
 curl http://localhost:8000/health
 # {"status":"ok"}
 ```
 
-### 4.2 Upload a document
+### 4.2 Upload a document (admin)
 
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@backend/docs/demo_upload/acme_parental_leave_policy_2026.pdf" \
   -F "source=acme_parental_leave_policy_2026.pdf"
 ```
 
-Expect a JSON body with `document_id`, `source`, and `chunks_indexed > 0`.
+Expect a JSON body with `document_id`, `source`, and `chunks_indexed > 0`. A member account gets
+`403`.
 
 ### 4.3 Chat — RAG route
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test","message":"What is the refund SLA policy?"}'
+  -d '{"message":"How many PTO days carry over to next year?"}'
 ```
 
 Check the response: `route` should be `rag`, `citations` should be populated after seeding, and a
@@ -124,20 +136,20 @@ Check the response: `route` should be `rag`, `citations` should be populated aft
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test","message":"What is current MRR revenue?"}'
+  -d '{"message":"What is current MRR revenue?"}'
 ```
 
-Expect `route` = `database` and a `query_fake_database` entry in `tool_results`.
+Expect `route` = `database` and a `query_metrics` entry in `tool_results`.
 
 ### 4.5 Chat — ticket route (write path)
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test","message":"Create an urgent ticket for a failed enterprise import."}'
+  -d '{"message":"Create an urgent ticket: my laptop screen is cracked."}'
 ```
 
 Expect `route` = `ticket` and a `create_ticket` entry in `tool_results` with `priority` = `high`.
@@ -146,24 +158,24 @@ Expect `route` = `ticket` and a `create_ticket` entry in `tool_results` with `pr
 
 ```bash
 curl -N -X POST http://localhost:8000/v1/chat/stream \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"test","message":"Summarize the refund policy."}'
+  -d '{"message":"What is the hotel limit in London?"}'
 ```
 
-You should see a series of `event: token` lines followed by a final `event: done` line containing
-citations, tool results, route, and trace id.
+You should see a series of `event: token` lines, an `event: done` line with citations, tool
+results, route and trace id, then an `event: suggestions` line with follow-up questions.
 
 ### 4.7 Read tickets (verifies persistence)
 
 ```bash
 # list (newest first)
 curl http://localhost:8000/v1/tickets \
-  -H "Authorization: Bearer dev-secret"
+  -H "Authorization: Bearer $TOKEN"
 
 # fetch one by id (use an id returned above)
 curl http://localhost:8000/v1/tickets/<ticket_id> \
-  -H "Authorization: Bearer dev-secret"
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 The ticket you created in 4.5 should appear here, confirming it was written to Postgres.
@@ -178,7 +190,7 @@ curl -i http://localhost:8000/v1/tickets
 ### Interactive docs
 
 Open `http://localhost:8000/docs` to try every endpoint from Swagger UI (use the "Authorize" button
-with `dev-secret`).
+with the token from 4.1).
 
 ---
 
@@ -186,15 +198,17 @@ with `dev-secret`).
 
 Open `http://localhost:5173` and verify:
 
-1. **Upload** a document (e.g. `backend/docs/demo_upload/acme_parental_leave_policy_2026.pdf`) and confirm it indexes.
-2. **Ask a RAG question** (`What is the refund SLA policy?`) and confirm the streamed answer plus
-   citations render.
+1. **Ask a RAG question** (`How many PTO days carry over to next year?`) and confirm the streamed
+   answer, the citations and the follow-up suggestions render.
+2. **Ask something the docs miss** (`How many weeks of parental leave do I get?`), click "Request
+   this document", then as an admin **upload**
+   `backend/docs/demo_upload/acme_parental_leave_policy_2026.pdf` and reply from the Inbox.
 3. **Ask a database question** (`What is current MRR revenue?`) and confirm tool output appears.
 4. **Create a ticket** (`Create a high priority ticket for a failed import.`) and confirm the tool
    result shows.
 
-Default frontend config (`frontend/.env`): API base `http://localhost:8000`, key `dev-secret`. If
-requests return 401, make sure `VITE_API_KEY` matches `APP_API_KEY` in `backend/.env`.
+Default frontend config (`frontend/.env`): API base `http://localhost:8000`. The widget on a sample
+intranet is at `http://localhost:5173/hub/`.
 
 ---
 
@@ -269,7 +283,8 @@ backend-only Compose above plus `npm run dev` for the frontend.
 | Symptom | Likely cause / fix |
 |---|---|
 | Backend exits on startup with a DB connection error | Postgres isn't running. Run `cd backend && docker compose up -d db`. |
-| `401 Unauthorized` | Missing/wrong bearer token. Use `Authorization: Bearer dev-secret`; ensure frontend `VITE_API_KEY` matches backend `APP_API_KEY`. |
+| `401 Unauthorized` | Missing or expired JWT. Log in again (`/v1/auth/login`) and send `Authorization: Bearer <token>`. If `JWT_SECRET` changed, old tokens stop working. |
+| `403 Forbidden` on upload | The account is a member. Add its email to `ADMIN_EMAILS` before registering it. |
 | Port `5433` already in use | Another container/process holds it. Change the host port in `backend/docker-compose.yml` and the `DATABASE_URL` port in `backend/.env`. |
 | Empty `citations` in chat responses | Knowledge base not seeded. Run `make seed` in `backend/`. |
 | Poor retrieval after changing embedding model | Clear `backend/data/chroma` and re-seed (vector dimensions differ between models). |
