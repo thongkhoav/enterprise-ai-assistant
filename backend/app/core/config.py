@@ -7,6 +7,17 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Example channels for the Acme sample company; set SUPPORT_CHANNELS to your own.
+DEFAULT_SUPPORT_CHANNELS = (
+    {"kind": "email", "label": "Email the help desk", "href": "mailto:helpdesk@acme.example"},
+    {
+        "kind": "slack",
+        "label": "Slack #ask-ops",
+        "href": "https://slack.com/app_redirect?channel=ask-ops",
+    },
+    {"kind": "teams", "label": "Microsoft Teams", "href": "https://teams.microsoft.com/"},
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -45,10 +56,26 @@ class Settings(BaseSettings):
     chunk_overlap: int = 120
     rough_cost_per_1k_tokens_usd: float = 0.002
 
+    # Accounts registered with these emails get the admin role (comma separated).
+    admin_emails_raw: str = Field(default="", alias="ADMIN_EMAILS")
+    # Public demo only: lets any signed-in user switch between member and admin.
+    demo_role_switch: bool = False
+    # Other ways to reach a person, shown under answers. JSON list of
+    # {"kind": "email" | "slack" | "teams" | "phone" | "link", "label": ..., "href": ...}.
+    support_channels: list[dict[str, str]] = Field(
+        default_factory=lambda: [dict(channel) for channel in DEFAULT_SUPPORT_CHANNELS]
+    )
+
     cors_origins_raw: str = Field(
         default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173",
         alias="CORS_ORIGINS",
     )
+
+    @property
+    def admin_emails(self) -> set[str]:
+        return {
+            email.strip().lower() for email in self.admin_emails_raw.split(",") if email.strip()
+        }
 
     @property
     def cors_origins(self) -> list[str]:

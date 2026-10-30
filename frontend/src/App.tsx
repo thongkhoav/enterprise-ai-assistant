@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   deleteConversation as apiDeleteConversation,
@@ -6,6 +6,7 @@ import {
   getConversation,
   listConversations,
   streamChat,
+  switchRole,
 } from "./api/client";
 import { AuthScreen } from "./components/AuthScreen";
 import { ChatConsole } from "./components/ChatConsole";
@@ -15,6 +16,7 @@ import { clearToken, getToken, setToken } from "./lib/auth";
 import { newId } from "./lib/ids";
 import { loadSettings } from "./lib/settings";
 import { useDocuments } from "./lib/useDocuments";
+import { useSupport } from "./lib/useSupport";
 import type {
   ApiMessage,
   AuthUser,
@@ -22,7 +24,9 @@ import type {
   Citation,
   ConversationSummary,
   Settings,
+  SupportKind,
   ToolResult,
+  UserRole,
 } from "./types";
 
 const STARTER_MESSAGES: ChatMessage[] = [];
@@ -46,6 +50,12 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const knowledge = useDocuments(settings, token);
+  const isAdmin = user?.role === "admin";
+  // A reply from the support team lands in a conversation; reload it if it is open.
+  const reloadRef = useRef<(conversationId: string) => void>(() => {});
+  const support = useSupport(settings, token, isAdmin, (request) => {
+    if (request.conversation_id) reloadRef.current(request.conversation_id);
+  });
 
   const handleLogout = useCallback(() => {
     clearToken();
@@ -132,11 +142,13 @@ export function App() {
         detail.messages.length
           ? detail.messages.map((message) => ({
               id: message.id,
-              role: message.role === "assistant" ? "assistant" : "user",
+              serverId: message.id,
+              role: message.role === "system" ? "assistant" : message.role,
               content: message.content,
               route: message.route || undefined,
               citations: message.citations || [],
               toolResults: message.tool_results || [],
+              suggestions: message.suggestions || [],
             }))
           : STARTER_MESSAGES,
       );
@@ -150,6 +162,31 @@ export function App() {
         },
       ]);
     }
+  }
+
+  reloadRef.current = (conversationId) => {
+    if (conversationId === activeConversationId && !isStreaming) {
+      void handleSelectConversation(conversationId);
+    }
+  };
+
+  async function handleSwitchRole(role: UserRole) {
+    if (!token) return;
+    try {
+      setUser(await switchRole(settings, token, role));
+    } catch {
+      // The toggle only exists when the server allows switching.
+    }
+  }
+
+  /** Hand an answer to a person: the question is the user message it replied to. */
+  async function handleSupportRequest(kind: SupportKind, message: ChatMessage) {
+    const index = messages.findIndex((item) => item.id === message.id);
+    const question = messages
+      .slice(0, index)
+      .reverse()
+      .find((item) => item.role === "user")?.content;
+    await support.create(kind, question || message.content, activeConversationId, message.serverId);
   }
 
   async function handleDeleteConversation(id: string) {
@@ -189,6 +226,14 @@ export function App() {
 
     try {
       await streamChat(settings, token, activeConversationId, message, (event) => {
+        if (event.type === "suggestions") {
+          setMessages((current) =>
+            current.map((item) =>
+              item.id === assistantId ? { ...item, suggestions: event.questions } : item,
+            ),
+          );
+          return;
+        }
         if (event.type === "token") {
           setMessages((current) =>
             current.map((item) =>
@@ -205,6 +250,7 @@ export function App() {
             item.id === assistantId
               ? {
                   ...item,
+                  serverId: event.message_id,
                   content: item.content.trim(),
                   route: event.route,
                   citations: event.citations,
@@ -256,9 +302,13 @@ export function App() {
         user={user}
         conversations={conversations}
         activeConversationId={activeConversationId}
+        isAdmin={isAdmin}
         documents={knowledge.documents}
         uploadStatus={knowledge.status}
         isUploading={knowledge.isUploading}
+        requests={support.requests}
+        onResolveRequest={support.resolve}
+        onSwitchRole={(role) => void handleSwitchRole(role)}
         onClose={() => setSidebarOpen(false)}
         onNewChat={() => {
           handleNewChat();
@@ -281,7 +331,11 @@ export function App() {
         documentCount={knowledge.documents.length}
         uploadStatus={knowledge.status}
         inspectorOpen={inspectorOpen}
+        canUpload={isAdmin}
+        requests={support.requests}
+        channels={support.channels}
         onSend={handleSend}
+        onSupportRequest={handleSupportRequest}
         onUpload={(files) => void knowledge.upload(files)}
         onToggleInspector={() => setInspectorOpen((current) => !current)}
         onOpenSidebar={() => setSidebarOpen(true)}

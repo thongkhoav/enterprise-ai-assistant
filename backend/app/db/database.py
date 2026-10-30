@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -31,9 +32,20 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
+# Columns added after the first release. `create_all` only creates missing tables, so an
+# existing database gets them here (the project has no migration tool yet).
+_ADDED_COLUMNS = (
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'member'",
+    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS suggestions JSON",
+)
+
+
 async def create_db_and_tables() -> None:
     async with get_engine().begin() as connection:
         await connection.run_sync(SQLModel.metadata.create_all)
+        if connection.dialect.name == "postgresql":
+            for statement in _ADDED_COLUMNS:
+                await connection.execute(text(statement))
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

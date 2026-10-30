@@ -6,7 +6,11 @@ import type {
   ErrorEvent,
   Settings,
   StreamEvent,
+  SupportChannel,
+  SupportKind,
+  SupportRequest,
   UploadResponse,
+  UserRole,
 } from "../types";
 
 export async function checkHealth(settings: Settings): Promise<string> {
@@ -62,6 +66,58 @@ export async function fetchMe(settings: Settings, token: string): Promise<AuthUs
     throw new Error(detailMessage(payload.detail) || "Failed to load profile");
   }
   return payload;
+}
+
+/** Public demo only: switch the signed-in user between member and admin. */
+export async function switchRole(
+  settings: Settings,
+  token: string,
+  role: UserRole,
+): Promise<AuthUser> {
+  return sendJson<AuthUser>(settings, token, "PUT", "/v1/auth/me/role", { role });
+}
+
+export async function listSupportChannels(
+  settings: Settings,
+  token: string,
+): Promise<SupportChannel[]> {
+  return sendJson<SupportChannel[]>(settings, token, "GET", "/v1/support/channels");
+}
+
+/** Admins get every request (their inbox); members get their own. */
+export async function listSupportRequests(
+  settings: Settings,
+  token: string,
+): Promise<SupportRequest[]> {
+  return sendJson<SupportRequest[]>(settings, token, "GET", "/v1/support/requests");
+}
+
+export async function createSupportRequest(
+  settings: Settings,
+  token: string,
+  request: {
+    kind: SupportKind;
+    question: string;
+    conversation_id?: string | null;
+    message_id?: string | null;
+  },
+): Promise<SupportRequest> {
+  return sendJson<SupportRequest>(settings, token, "POST", "/v1/support/requests", request);
+}
+
+export async function resolveSupportRequest(
+  settings: Settings,
+  token: string,
+  requestId: string,
+  reply: string,
+): Promise<SupportRequest> {
+  return sendJson<SupportRequest>(
+    settings,
+    token,
+    "POST",
+    `/v1/support/requests/${requestId}/resolve`,
+    { reply },
+  );
 }
 
 export async function listConversations(
@@ -211,6 +267,28 @@ export async function streamChat(
       onEvent(event);
     }
   }
+}
+
+async function sendJson<T>(
+  settings: Settings,
+  token: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(`${settings.apiBaseUrl}${path}`, {
+    method,
+    headers: {
+      ...authHeaders(token),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const payload = await readJson<T & { detail?: unknown }>(response);
+  if (!response.ok) {
+    throw new Error(detailMessage(payload.detail) || `Request failed (${response.status})`);
+  }
+  return payload;
 }
 
 function authHeaders(token: string): HeadersInit {

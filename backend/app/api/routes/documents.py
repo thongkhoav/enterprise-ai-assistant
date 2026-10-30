@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from app.api.deps import get_current_user, get_vector_store
+from app.api.deps import get_current_user, get_vector_store, require_admin
 from app.core.config import Settings, get_settings
 from app.schemas.documents import DocumentSummary, DocumentUploadResponse
 from app.services.chunking import chunk_document
@@ -23,7 +23,9 @@ async def list_documents(
     return [DocumentSummary(**item) for item in await vector_store.list_documents()]
 
 
-@router.post("/upload", response_model=DocumentUploadResponse)
+@router.post(
+    "/upload", response_model=DocumentUploadResponse, dependencies=[Depends(require_admin)]
+)
 async def upload_document(
     file: UploadFile = File(...),
     source: str | None = Form(default=None),
@@ -54,7 +56,11 @@ async def upload_document(
     )
 
 
-@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 async def delete_document(
     document_id: str,
     vector_store: VectorStore = Depends(get_vector_store),

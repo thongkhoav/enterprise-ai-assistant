@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 from collections.abc import AsyncIterator
 
@@ -40,6 +41,15 @@ Example of the citation style:
 Example with live data that has no "churn rate" field:
   The data does not report a churn rate. It shows 37 of 12,840 customers flagged as
   churn risk [data]."""
+
+SUGGEST_PROMPT = """You suggest what an employee could ask an internal knowledge assistant next.
+
+Return JSON: {"questions": ["...", "...", "..."]}
+- Up to three questions, each under 12 words, phrased the way the employee would ask.
+- Each one must be answerable from the sources below. Never suggest a question the
+  sources cannot answer, and never repeat the question already asked.
+- Prefer the natural next step: a related rule, an exception, a deadline, a number.
+- If the assistant could not answer, suggest nearby questions the sources do cover."""
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 _STOPWORDS = {
@@ -109,6 +119,41 @@ class RAGService:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
+    async def suggest_follow_ups(
+        self, question: str, answer: str, docs: list[dict], tool_results: list[dict]
+    ) -> list[str]:
+        """Up to three follow-up questions the indexed documents can answer.
+
+        Needs a model; offline mode offers none. When nothing cleared the relevance bar (an
+        "I don't know"), the nearest chunks still show what the documents do cover.
+        """
+        if not self._client:
+            return []
+        if not docs:
+            docs = [
+                {**hit, "n": index}
+                for index, hit in enumerate(
+                    await self.vector_store.search(question, top_k=3), start=1
+                )
+            ]
+        if not docs and not tool_results:
+            return []
+
+        response = await self._client.chat.completions.create(
+            model=self.settings.openai_model or DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": SUGGEST_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"Sources:\n{self._format_context(docs, tool_results)}\n\n"
+                    f"Question asked: {question}\nAssistant answer: {answer}",
+                },
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        return parse_suggestions(response.choices[0].message.content or "", question)
+
     async def stream_extractive(
         self, question: str, docs: list[dict], tool_results: list[dict]
     ) -> AsyncIterator[str]:
@@ -165,6 +210,34 @@ class RAGService:
             if len(picked) == 3:
                 break
         return " ".join(f"{sentence} [{n}]" for n, sentence in picked)
+
+
+def parse_suggestions(raw: str, question: str, limit: int = 3) -> list[str]:
+    """Clean the model's JSON into distinct short questions, dropping a repeat of `question`."""
+    try:
+        items = json.loads(raw).get("questions", [])
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+    asked = _normalise(question)
+    seen: set[str] = set()
+    questions: list[str] = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, str):
+            continue
+        text = " ".join(item.split()).strip(" -\u2022")
+        key = _normalise(text)
+        if not text or len(text) > 120 or key == asked or key in seen:
+            continue
+        seen.add(key)
+        questions.append(text if text.endswith("?") else text.rstrip(".") + "?")
+        if len(questions) == limit:
+            break
+    return questions
+
+
+def _normalise(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", text.lower()))
 
 
 def is_no_answer(answer: str) -> bool:

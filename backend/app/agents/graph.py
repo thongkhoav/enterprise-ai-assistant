@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from time import perf_counter
@@ -22,6 +23,7 @@ from app.services.rag import NO_ANSWER, RAGService, cited_numbers, is_no_answer
 from app.telemetry.tracing import write_trace
 
 SNIPPET_CHARS = 900
+SUGGEST_TIMEOUT_S = 8
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +47,16 @@ class AgentRunner:
         async for event in self.stream(request, conversation_id):
             if event["type"] == "done":
                 result = event
+            elif event["type"] == "suggestions":
+                result["suggestions"] = event["questions"]
         result.pop("type", None)
         return result
 
     async def stream(
         self, request: ChatRequest, conversation_id: str
     ) -> AsyncIterator[dict[str, Any]]:
-        """Yield {"type": "token", "text"} events, then one {"type": "done", ...} result."""
+        """Yield {"type": "token", "text"} events, one {"type": "done", ...} result, then
+        {"type": "suggestions", "questions"} once the follow-up questions are ready."""
         started = perf_counter()
         trace_id = str(uuid4())
         initial: AgentState = {
@@ -128,6 +133,34 @@ class AgentRunner:
             "latency_ms": latency_ms,
             "answer_mode": answer_mode,
         }
+
+        # Follow-ups come after "done" so they never hold up the answer itself.
+        yield {
+            "type": "suggestions",
+            "questions": await self._suggestions(
+                request.message, answer, route, documents, tool_results
+            ),
+        }
+
+    async def _suggestions(
+        self,
+        question: str,
+        answer: str,
+        route: str,
+        documents: list[dict],
+        tool_results: list[dict],
+    ) -> list[str]:
+        if route in ("ticket", "error"):
+            return []
+        evidence = [item for item in tool_results if item.get("name") != "search_docs"]
+        try:
+            return await asyncio.wait_for(
+                self.rag.suggest_follow_ups(question, answer, documents, evidence),
+                timeout=SUGGEST_TIMEOUT_S,
+            )
+        except Exception:  # suggestions are optional; the answer already went out
+            logger.warning("Follow-up suggestions failed", exc_info=True)
+            return []
 
     def _build_graph(self):
         builder = StateGraph(AgentState)

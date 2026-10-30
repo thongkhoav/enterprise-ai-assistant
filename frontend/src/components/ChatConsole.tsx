@@ -1,24 +1,43 @@
 import {
   ArrowUp,
   Check,
+  ChevronDown,
+  CircleCheck,
   CircleHelp,
   Copy,
+  CornerDownRight,
   Database,
+  ExternalLink,
+  FilePlus2,
   FileText,
+  Hash,
+  Headset,
   LoaderCircle,
+  Mail,
   Menu,
+  MessagesSquare,
   PanelRight,
   Paperclip,
+  Phone,
   ShieldQuestion,
   Sparkles,
   TicketCheck,
   TriangleAlert,
   UploadCloud,
+  UserRound,
+  Users,
 } from "lucide-react";
-import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
-import type { ChatMessage, Citation, ToolResult } from "../types";
+import type {
+  ChatMessage,
+  Citation,
+  SupportChannel,
+  SupportKind,
+  SupportRequest,
+  ToolResult,
+} from "../types";
 
 type ChatConsoleProps = {
   title: string;
@@ -27,7 +46,12 @@ type ChatConsoleProps = {
   documentCount: number;
   uploadStatus: UploadStatus | null;
   inspectorOpen: boolean;
+  /** Only knowledge base admins may add documents. */
+  canUpload: boolean;
+  requests: SupportRequest[];
+  channels: SupportChannel[];
   onSend: (message: string) => void;
+  onSupportRequest: (kind: SupportKind, message: ChatMessage) => Promise<void>;
   onUpload: (files: FileList | null) => void;
   onToggleInspector: () => void;
   onOpenSidebar: () => void;
@@ -67,7 +91,11 @@ export function ChatConsole({
   documentCount,
   uploadStatus,
   inspectorOpen,
+  canUpload,
+  requests,
+  channels,
   onSend,
+  onSupportRequest,
   onUpload,
   onToggleInspector,
   onOpenSidebar,
@@ -77,6 +105,7 @@ export function ChatConsole({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const lastAnswerId = [...messages].reverse().find((message) => message.role === "assistant")?.id;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -113,7 +142,7 @@ export function ChatConsole({
       className="workspace"
       aria-label="Chat"
       onDragOver={(event) => {
-        if (event.dataTransfer.types.includes("Files")) {
+        if (canUpload && event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
           setIsDragging(true);
         }
@@ -155,12 +184,36 @@ export function ChatConsole({
                 <article className="message user" key={message.id}>
                   <div className="bubble">{message.content}</div>
                 </article>
+              ) : message.role === "agent" ? (
+                <article className="message agent" key={message.id}>
+                  <div className="avatar agent">
+                    <Headset size={16} />
+                  </div>
+                  <div className="answer">
+                    <span className="agent-label">Support team · replied in this chat</span>
+                    <div className="agent-bubble">{message.content}</div>
+                  </div>
+                </article>
               ) : (
                 <article className="message assistant" key={message.id}>
                   <div className="avatar">
                     <Sparkles size={16} />
                   </div>
-                  <AssistantMessage message={message} isStreaming={isStreaming} />
+                  <AssistantMessage
+                    message={message}
+                    isStreaming={isStreaming}
+                    nextSteps={
+                      message.id === lastAnswerId && !isStreaming ? (
+                        <NextSteps
+                          message={message}
+                          requests={requests}
+                          channels={channels}
+                          onAsk={send}
+                          onRequest={(kind) => onSupportRequest(kind, message)}
+                        />
+                      ) : null
+                    }
+                  />
                 </article>
               ),
             )
@@ -175,15 +228,17 @@ export function ChatConsole({
             {uploadStatus.text}
           </p>
         )}
-        <form className="composer" onSubmit={handleSubmit}>
-          <button
-            type="button"
-            className="icon-button ghost"
-            title="Upload a document"
-            onClick={() => fileRef.current?.click()}
-          >
-            <Paperclip size={18} />
-          </button>
+        <form className={`composer ${canUpload ? "" : "no-attach"}`} onSubmit={handleSubmit}>
+          {canUpload && (
+            <button
+              type="button"
+              className="icon-button ghost"
+              title="Add a document to the knowledge base"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip size={18} />
+            </button>
+          )}
           <input
             ref={fileRef}
             type="file"
@@ -218,7 +273,8 @@ export function ChatConsole({
           </button>
         </form>
         <p className="composer-hint">
-          Enter to send · Shift + Enter for a new line · drop files anywhere to index them
+          Enter to send · Shift + Enter for a new line
+          {canUpload && " · drop files anywhere to add them to the knowledge base"}
         </p>
       </div>
 
@@ -268,9 +324,11 @@ function EmptyState({ disabled, onPick }: { disabled: boolean; onPick: (text: st
 function AssistantMessage({
   message,
   isStreaming,
+  nextSteps,
 }: {
   message: ChatMessage;
   isStreaming: boolean;
+  nextSteps: ReactNode;
 }) {
   const [openSource, setOpenSource] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -366,6 +424,159 @@ function AssistantMessage({
           {message.answerMode === "fallback" && <span>LLM unavailable, quoted from the sources</span>}
         </div>
       )}
+
+      {isDone && !failed && message.route !== "ticket" && nextSteps}
+    </div>
+  );
+}
+
+const CHANNEL_ICONS: Record<string, typeof Mail> = {
+  email: Mail,
+  slack: Hash,
+  teams: Users,
+  phone: Phone,
+};
+
+/**
+ * What to do after an answer: follow-up questions the documents can answer, and ways to reach a
+ * person. A "not in the documents" answer leads with requesting the document.
+ */
+function NextSteps({
+  message,
+  requests,
+  channels,
+  onAsk,
+  onRequest,
+}: {
+  message: ChatMessage;
+  requests: SupportRequest[];
+  channels: SupportChannel[];
+  onAsk: (question: string) => void;
+  onRequest: (kind: SupportKind) => Promise<void>;
+}) {
+  const [showChannels, setShowChannels] = useState(false);
+  const [pending, setPending] = useState<SupportKind | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const noAnswer = message.route === "no_answer";
+  const suggestions = message.suggestions || [];
+  const requested = (kind: SupportKind) =>
+    requests.find((item) => item.kind === kind && item.message_id === message.serverId);
+  const docsRequest = requested("docs");
+  const humanRequest = requested("human");
+  const waiting = [docsRequest, humanRequest].some((item) => item?.status === "open");
+
+  async function request(kind: SupportKind) {
+    setPending(kind);
+    setError(null);
+    try {
+      await onRequest(kind);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not send the request.");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  function requestButton(kind: SupportKind, existing: SupportRequest | undefined) {
+    const Icon = kind === "docs" ? FilePlus2 : UserRound;
+    const label = existing
+      ? existing.status === "open"
+        ? kind === "docs"
+          ? "Document requested"
+          : "Waiting for a person"
+        : "Answered below"
+      : kind === "docs"
+        ? "Request this document"
+        : "Talk to a person";
+    return (
+      <button
+        type="button"
+        className={`handoff-button ${existing ? "done" : ""} ${kind === "docs" ? "primary" : ""}`}
+        disabled={Boolean(existing) || pending !== null || !message.serverId}
+        onClick={() => void request(kind)}
+      >
+        {pending === kind ? (
+          <LoaderCircle className="spin" size={14} />
+        ) : existing ? (
+          <CircleCheck size={14} />
+        ) : (
+          <Icon size={14} />
+        )}
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="next-steps">
+      {suggestions.length > 0 && (
+        <div className="follow-ups">
+          <p className="sources-label">{noAnswer ? "The documents do cover" : "Ask next"}</p>
+          <div className="follow-up-list">
+            {suggestions.map((question) => (
+              <button
+                type="button"
+                className="follow-up"
+                key={question}
+                onClick={() => onAsk(question)}
+              >
+                <CornerDownRight size={14} />
+                {question}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className={`handoff ${noAnswer ? "prominent" : ""}`}>
+        <span className="handoff-label">
+          {noAnswer ? "Need this answered?" : "Not what you needed?"}
+        </span>
+        <div className="handoff-actions">
+          {noAnswer && requestButton("docs", docsRequest)}
+          {requestButton("human", humanRequest)}
+          {channels.length > 0 && (
+            <button
+              type="button"
+              className={`handoff-button ${showChannels ? "open" : ""}`}
+              aria-expanded={showChannels}
+              onClick={() => setShowChannels((current) => !current)}
+            >
+              <MessagesSquare size={14} />
+              Other channels
+              <ChevronDown size={14} className="chevron" />
+            </button>
+          )}
+        </div>
+        {showChannels && (
+          <div className="channels">
+            {channels.map((channel) => {
+              const Icon = CHANNEL_ICONS[channel.kind] || ExternalLink;
+              return (
+                <a
+                  key={channel.href}
+                  className="channel"
+                  href={channel.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon size={14} />
+                  {channel.label}
+                </a>
+              );
+            })}
+          </div>
+        )}
+        {waiting && (
+          <p className="handoff-status">
+            <span className="live-dot" />
+            {docsRequest?.status === "open"
+              ? "The knowledge team has your request. Their reply will show up in this chat."
+              : "A person from the support team will reply in this chat."}
+          </p>
+        )}
+        {error && <p className="status error">{error}</p>}
+      </div>
     </div>
   );
 }

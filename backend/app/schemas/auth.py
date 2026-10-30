@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -21,8 +22,18 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+Role = Literal["admin", "member"]
+
+
 class UserPublic(BaseModel):
     id: str
     email: str
     full_name: str | None = None
+    role: Role = "member"
     created_at: datetime
+    # True on the public demo, where anyone may switch roles to try both sides.
+    can_switch_role: bool = False
+
+
+class RoleUpdate(BaseModel):
+    role: Role
