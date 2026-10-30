@@ -267,7 +267,7 @@ Expected document shape:
 {
     "text": "...",
     "metadata": {
-        "source": "sample_policy.md",
+        "source": "acme_enterprise_support_policy.md",
         "chunk_id": "..."
     },
     "score": 0.82
@@ -279,7 +279,7 @@ Output shape:
 ```python
 {
     "documents_found": 3,
-    "top_sources": ["sample_policy.md", "runbook.md"]
+    "top_sources": ["acme_enterprise_support_policy.md", "runbook.md"]
 }
 ```
 
@@ -400,7 +400,7 @@ Good first learning change:
 Then `RAGService._format_context` turns each result into plain text:
 
 ```text
-[sample_policy.md#abc123:0:xyz] chunk text here...
+[acme_enterprise_support_policy.md#abc123:0:xyz] chunk text here...
 
 search_docs: {"documents_found": 3, "top_sources": [...]}
 create_ticket: {"id": "...", "title": "...", ...}
@@ -451,7 +451,7 @@ Two responsibilities:
 Context format fed to the model:
 
 ```
-[sample_policy.md#abc123:0:def456] chunk text here...
+[acme_enterprise_support_policy.md#abc123:0:def456] chunk text here...
 [runbook.md#xyz789:1:ghi012] more chunk text...
 
 search_docs: {"documents_found": 3, "top_sources": [...]}

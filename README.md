@@ -20,7 +20,7 @@ documents and shows the passage (and PDF page) each answer comes from.
 - Requests land in the admin Inbox. The admin's reply is posted back into the employee's chat.
 - A LangGraph router sends metric questions to a database tool and "create a ticket" requests to a
   ticket tool; a trace panel shows route, latency, retrieval scores and tool output.
-- "Try the demo" on the sign-in page creates a private guest session, so visitors need no account.
+- "Continue as guest" on the sign-in page creates a private guest session (`VITE_GUEST_ACCESS`).
   With `DEMO_ROLE_SWITCH=true` a "View as Employee / Admin" switch lets visitors try both sides.
   Outside the demo, `ADMIN_EMAILS` decides who registers as an admin.
 
@@ -102,7 +102,7 @@ The PDF and DOCX files are generated from `backend/scripts/build_seed_files.py`
 
 1. Start Postgres (`docker compose up -d db` in `backend/`), the backend and the frontend.
 2. Run `make seed` in `backend/`, or switch to Admin and drop files onto the chat.
-3. Click "Try the demo", then ask: `What service credit do we get if monthly uptime drops to 98.5%?`
+3. Click "Continue as guest", then ask: `What service credit do we get if monthly uptime drops to 98.5%?`
    and click the `[1]` citation (contract PDF, page 3).
 4. Ask something the docs do not cover: `What is our parental leave policy?` ("I don't know").
    Click "Request this document", switch to Admin, and reply from the Inbox; the reply shows up

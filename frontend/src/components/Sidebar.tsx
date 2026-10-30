@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useState } from "react";
 
-import { APP_NAME } from "../lib/brand";
+import { APP_NAME, APP_SUBTITLE } from "../lib/brand";
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
 import type {
   AuthUser,
@@ -70,7 +70,6 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const [tab, setTab] = useState<Tab>("chats");
-  const totalChunks = documents.reduce((sum, item) => sum + item.chunks, 0);
   const isGuest = user?.email.startsWith("guest-");
   const openRequests = requests.filter((request) => request.status === "open");
   const resolvedCount = requests.length - openRequests.length;
@@ -85,7 +84,7 @@ export function Sidebar({
           </div>
           <div>
             <h1>{APP_NAME}</h1>
-            <p>RAG assistant with sources</p>
+            <p>{APP_SUBTITLE}</p>
           </div>
           <button type="button" className="icon-button close-sidebar" onClick={onClose}>
             <X size={18} />
@@ -211,7 +210,7 @@ export function Sidebar({
             )}
             {uploadStatus && <p className={`status ${uploadStatus.type}`}>{uploadStatus.text}</p>}
             <p className="count">
-              {documents.length} documents · {totalChunks} chunks indexed
+              {documents.length} documents
             </p>
             <div className="document-list">
               {documents.map((document) => (
@@ -222,8 +221,8 @@ export function Sidebar({
                   <div>
                     <strong title={document.source}>{document.source.split("/").pop()}</strong>
                     <span>
-                      {document.page_count ? `${document.page_count} pages · ` : ""}
-                      {document.chunks} chunks
+                      {fileLabel(document.source)}
+                      {document.page_count ? ` · ${document.page_count} pages` : ""}
                     </span>
                   </div>
                   {isAdmin && (
@@ -244,7 +243,7 @@ export function Sidebar({
       </div>
 
       {user?.can_switch_role && (
-        <div className="role-switch" role="radiogroup" aria-label="View the demo as">
+        <div className="role-switch" role="radiogroup" aria-label="View as">
           <span>View as</span>
           {(["member", "admin"] as const).map((role) => (
             <button
@@ -268,7 +267,7 @@ export function Sidebar({
           <strong>{isGuest ? "Guest" : user?.full_name || user?.email || ""}</strong>
           <span>
             {isAdmin ? "Knowledge admin" : "Employee"}
-            {isGuest ? " · demo session" : ` · ${user?.email || ""}`}
+            {isGuest ? "" : ` · ${user?.email || ""}`}
           </span>
         </div>
         <button type="button" className="icon-button ghost" title="Sign out" onClick={onLogout}>
@@ -330,6 +329,17 @@ function InboxItem({
       </button>
     </form>
   );
+}
+
+const FILE_LABELS: Record<string, string> = {
+  pdf: "PDF",
+  docx: "Word",
+  md: "Markdown",
+  txt: "Text",
+};
+
+function fileLabel(source: string): string {
+  return FILE_LABELS[fileKind(source)] || "File";
 }
 
 function fileKind(source: string): string {

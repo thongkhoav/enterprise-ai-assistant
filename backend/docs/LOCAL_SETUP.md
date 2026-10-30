@@ -112,7 +112,7 @@ make seed
 
 This indexes:
 
-- `docs/sample_policy.md`
+- `docs/seed/acme_enterprise_support_policy.md`
 - every Markdown file under `docs/seed/`
 
 Expected output should show multiple documents and chunks, for example:
@@ -157,8 +157,8 @@ Upload:
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
   -H "Authorization: Bearer dev-secret" \
-  -F "file=@docs/sample_policy.md" \
-  -F "source=sample_policy.md"
+  -F "file=@docs/seed/acme_enterprise_support_policy.md" \
+  -F "source=acme_enterprise_support_policy.md"
 ```
 
 Streaming chat:

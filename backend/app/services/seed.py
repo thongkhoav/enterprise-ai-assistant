@@ -6,12 +6,9 @@ from app.services.chunking import chunk_document
 from app.services.document_loader import load_file
 from app.services.vector_store import VectorStore
 
-SEED_PATHS = [
-    Path("docs/sample_policy.md"),
-    *sorted(
-        path for path in Path("docs/seed").iterdir() if path.suffix in {".md", ".pdf", ".docx"}
-    ),
-]
+SEED_PATHS = sorted(
+    path for path in Path("docs/seed").iterdir() if path.suffix in {".md", ".pdf", ".docx"}
+)
 
 
 async def seed_documents(settings: Settings, vector_store: VectorStore) -> list[dict]:
