@@ -1,0 +1,14 @@
+# Served by the frontend image. EMBED_FRAME_ANCESTORS lists the sites allowed to frame the
+# widget (embed.html), e.g. "'self' https://intranet.example.com"; nginx fills it in at start.
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+
+    location = /embed.html {
+        add_header Content-Security-Policy "frame-ancestors ${EMBED_FRAME_ANCESTORS}" always;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

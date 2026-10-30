@@ -1,5 +1,5 @@
 from app.services.chunking import chunk_document, chunk_text
-from app.services.document_loader import LoadedDocument
+from app.services.document_loader import LoadedDocument, strip_page_numbers
 
 
 def test_chunk_text_creates_overlapping_chunks() -> None:
@@ -38,3 +38,14 @@ def test_chunk_document_tags_pdf_pages() -> None:
 
     assert [chunk.metadata["page"] for chunk in chunks] == [1, 3]
     assert len({chunk.id for chunk in chunks}) == 2
+
+
+def test_strip_page_numbers_drops_footer_lines_only() -> None:
+    text = (
+        "Page 2\n401(k) Retirement Plan\nMatch up to 4 percent.\n3 of 5\n"
+        "See page 4 for details.\n12"
+    )
+
+    assert strip_page_numbers(text) == (
+        "401(k) Retirement Plan\nMatch up to 4 percent.\n\nSee page 4 for details.\n12"
+    )

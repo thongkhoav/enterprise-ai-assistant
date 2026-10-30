@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { switchRole } from "./api/client";
 import { AuthScreen } from "./components/AuthScreen";
@@ -12,11 +12,15 @@ import { useSession } from "./lib/useSession";
 import { useSupport } from "./lib/useSupport";
 import type { ChatMessage, Settings, SupportKind, UserRole } from "./types";
 
+// "Open in a full window" from the widget links here with ?conversation=<id>. Read once and
+// removed from the address bar, keeping any other parameters and the hash.
+const LINKED_CONVERSATION = takeConversationParam();
+
 export function App() {
   const [settings] = useState<Settings>(() => loadSettings());
   const session = useSession(settings);
   const { token, user } = session;
-  const chat = useChat(settings, token);
+  const chat = useChat(settings, token, { initialConversationId: LINKED_CONVERSATION });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const knowledge = useDocuments(settings, token);
@@ -27,19 +31,6 @@ export function App() {
   const support = useSupport(settings, token, isAdmin, (request) => {
     if (request.conversation_id) reloadRef.current(request.conversation_id);
   });
-
-  // "Open in a full window" from the widget links here with ?conversation=<id>.
-  const opened = useRef(false);
-  const selectRef = useRef(chat.selectConversation);
-  selectRef.current = chat.selectConversation;
-  useEffect(() => {
-    if (!token || opened.current) return;
-    opened.current = true;
-    const id = new URLSearchParams(window.location.search).get("conversation");
-    if (!id) return;
-    window.history.replaceState(null, "", window.location.pathname);
-    void selectRef.current(id);
-  }, [token]);
 
   async function handleSwitchRole(role: UserRole) {
     if (!token) return;
@@ -125,4 +116,14 @@ export function App() {
       />
     </main>
   );
+}
+
+function takeConversationParam(): string | null {
+  const url = new URL(window.location.href);
+  const id = url.searchParams.get("conversation");
+  if (id) {
+    url.searchParams.delete("conversation");
+    window.history.replaceState(null, "", url);
+  }
+  return id;
 }

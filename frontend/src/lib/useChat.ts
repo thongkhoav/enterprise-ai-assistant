@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   deleteConversation as apiDeleteConversation,
@@ -10,6 +10,7 @@ import type {
   ApiMessage,
   ChatMessage,
   Citation,
+  ConversationDetail,
   ConversationSummary,
   Settings,
   ToolResult,
@@ -34,37 +35,88 @@ const EMPTY_TRACE: Trace = {
   answerMode: null,
 };
 
+export type ChatOptions = {
+  /** Conversation to open once signed in: a shared link, or the widget's previous page. */
+  initialConversationId?: string | null;
+  /** Called when that conversation cannot be opened (deleted, or another user's). */
+  onInitialMissing?: () => void;
+  /** The widget shows no conversation list, so it can skip fetching one. */
+  listConversations?: boolean;
+};
+
 /**
  * Conversations and the streaming chat, shared by the full app and the embedded widget.
  * `trace` mirrors the latest answer for the admin trace panel.
  */
-export function useChat(settings: Settings, token: string | null) {
+export function useChat(settings: Settings, token: string | null, options: ChatOptions = {}) {
+  const { initialConversationId = null, listConversations: withList = true } = options;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [trace, setTrace] = useState<Trace>(EMPTY_TRACE);
+  // Read by `send` after it awaits, when the rendered value may be stale.
+  const activeRef = useRef<string | null>(null);
+  // Sends wait for the initial conversation, so a question asked while it loads joins it
+  // instead of being overwritten when it arrives.
+  const initialLoad = useRef<Promise<void>>(Promise.resolve());
+  const initialDone = useRef(false);
+  const onMissingRef = useRef(options.onInitialMissing);
+  onMissingRef.current = options.onInitialMissing;
+
+  function setActive(id: string | null) {
+    activeRef.current = id;
+    setActiveConversationId(id);
+  }
+
+  function show(detail: ConversationDetail) {
+    setActive(detail.id);
+    setMessages(detail.messages.map(toChatMessage));
+    setTrace(traceFrom(detail.messages));
+  }
 
   const refreshConversations = useCallback(async () => {
-    if (!token) return;
+    if (!token || !withList) return;
     try {
       setConversations(await listConversations(settings, token));
     } catch {
       // The list is navigation only; the open chat keeps working.
     }
-  }, [settings, token]);
+  }, [settings, token, withList]);
 
   useEffect(() => {
-    // A new or cleared session starts from an empty chat.
+    // A new or cleared session starts from an empty chat, or from the initial conversation.
     setConversations([]);
-    setActiveConversationId(null);
+    setActive(null);
     setMessages([]);
     setTrace(EMPTY_TRACE);
     void refreshConversations();
-  }, [refreshConversations]);
+
+    if (!token || !initialConversationId || initialDone.current) {
+      initialLoad.current = Promise.resolve();
+      return;
+    }
+    // Marked done only when settled: React's dev double-run cancels the first attempt.
+    let cancelled = false;
+    initialLoad.current = getConversation(settings, token, initialConversationId)
+      .then((detail) => {
+        if (cancelled) return;
+        initialDone.current = true;
+        show(detail);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        initialDone.current = true;
+        onMissingRef.current?.();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `show` and `setActive` only call state setters, so they are not dependencies.
+  }, [refreshConversations, settings, token, initialConversationId]);
 
   function newChat() {
-    setActiveConversationId(null);
+    setActive(null);
     setMessages([]);
     setTrace(EMPTY_TRACE);
   }
@@ -72,10 +124,7 @@ export function useChat(settings: Settings, token: string | null) {
   async function selectConversation(id: string) {
     if (!token) return;
     try {
-      const detail = await getConversation(settings, token, id);
-      setActiveConversationId(detail.id);
-      setMessages(detail.messages.map(toChatMessage));
-      setTrace(traceFrom(detail.messages));
+      show(await getConversation(settings, token, id));
     } catch (error) {
       setMessages([
         {
@@ -117,6 +166,7 @@ export function useChat(settings: Settings, token: string | null) {
 
   async function send(text: string) {
     if (!token) return;
+    await initialLoad.current;
 
     const assistantId = newId("assistant");
     const update = (patch: (item: ChatMessage) => Partial<ChatMessage>) =>
@@ -133,7 +183,7 @@ export function useChat(settings: Settings, token: string | null) {
     setTrace({ ...EMPTY_TRACE, route: "thinking", traceId: "pending" });
 
     try {
-      await streamChat(settings, token, activeConversationId, text, (event) => {
+      await streamChat(settings, token, activeRef.current, text, (event) => {
         if (event.type === "suggestions") {
           update(() => ({ suggestions: event.questions }));
           return;
@@ -160,7 +210,7 @@ export function useChat(settings: Settings, token: string | null) {
           latencyMs: event.latency_ms ?? null,
           answerMode: event.answer_mode ?? null,
         });
-        setActiveConversationId(event.conversation_id);
+        setActive(event.conversation_id);
         void refreshConversations();
       });
     } catch (error) {

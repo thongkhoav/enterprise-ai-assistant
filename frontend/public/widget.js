@@ -8,15 +8,29 @@
  * data-context  page topic for the starter questions: "benefits", "it" or empty
  *
  * The page can also call window.DocAnswer.open("question") to open the panel and ask.
+ *
+ * Loaded by a tag manager or as a module, where the script tag cannot be found, set
+ * window.DocAnswerConfig = { host: "https://your-docanswer-host", name, context } first.
  */
 (function () {
   if (window.DocAnswer) return;
 
-  var script = document.currentScript;
-  var origin = new URL(script.src).origin;
-  var name = script.dataset.name || "Ask Acme";
-  var context = script.dataset.context || "";
+  var config = window.DocAnswerConfig || {};
+  var script = document.currentScript || document.querySelector('script[src*="widget.js"]');
+  var data = (script && script.dataset) || {};
+  var host = config.host || (script && script.src);
+  if (!host) {
+    console.warn("DocAnswer widget: set window.DocAnswerConfig.host to load it.");
+    return;
+  }
+  var origin = new URL(host, window.location.href).origin;
+  var name = config.name || data.name || "Ask Acme";
+  var context = config.context || data.context || "";
   var OPEN_KEY = "docanswer-widget-open";
+  // Set while a request waits for a person, so every page loads the panel in the background.
+  var WATCH_KEY = "docanswer-widget-watch";
+  // A reply arrived but the panel was not opened yet; the dot survives page loads.
+  var UNREAD_KEY = "docanswer-widget-unread";
 
   var css = [
     ".dqa-launcher{position:fixed;right:24px;bottom:24px;z-index:2147483000;display:flex;",
@@ -85,22 +99,35 @@
     panel.appendChild(iframe);
   }
 
-  function remember(open) {
+  function store(key, on) {
     try {
-      sessionStorage.setItem(OPEN_KEY, open ? "1" : "");
+      sessionStorage.setItem(key, on ? "1" : "");
     } catch (error) {
-      // Storage blocked: the panel just starts closed on the next page.
+      // Storage blocked: the panel just forgets this on the next page.
     }
+  }
+
+  function stored(key) {
+    try {
+      return sessionStorage.getItem(key) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function showUnread(on) {
+    launcher.classList.toggle("dqa-unread", on);
+    store(UNREAD_KEY, on);
   }
 
   function open(question) {
     load();
     panel.classList.add("dqa-open");
     launcher.classList.add("dqa-open");
-    launcher.classList.remove("dqa-unread");
+    showUnread(false);
     launcher.innerHTML = close + '<i class="dqa-dot"></i>';
     launcher.setAttribute("aria-label", "Close " + name);
-    remember(true);
+    store(OPEN_KEY, true);
     if (question) ask(question);
   }
 
@@ -110,7 +137,7 @@
     launcher.innerHTML =
       sparkles + '<span class="dqa-label">' + name + '</span><i class="dqa-dot"></i>';
     launcher.setAttribute("aria-label", "Open " + name);
-    remember(false);
+    store(OPEN_KEY, false);
   }
 
   function ask(question) {
@@ -130,9 +157,8 @@
     if (!iframe || event.source !== iframe.contentWindow || event.origin !== origin) return;
     var type = event.data && event.data.type;
     if (type === "docanswer:close") hide();
-    if (type === "docanswer:unread" && !panel.classList.contains("dqa-open")) {
-      launcher.classList.add("dqa-unread");
-    }
+    if (type === "docanswer:unread" && !panel.classList.contains("dqa-open")) showUnread(true);
+    if (type === "docanswer:watch") store(WATCH_KEY, Boolean(event.data.on));
     if (type === "docanswer:ready") {
       ready = true;
       pending.splice(0).forEach(ask);
@@ -142,14 +168,11 @@
   function mount() {
     document.body.appendChild(panel);
     document.body.appendChild(launcher);
-    // Keep the panel open across page loads, and load it early so replies can raise the dot.
-    var wasOpen = false;
-    try {
-      wasOpen = sessionStorage.getItem(OPEN_KEY) === "1";
-    } catch (error) {
-      wasOpen = false;
-    }
-    if (wasOpen) open();
+    // Keep the panel open across page loads. While a request waits for a person, load it in
+    // the background anyway, so the reply can raise the dot on whatever page is open.
+    if (stored(UNREAD_KEY)) launcher.classList.add("dqa-unread");
+    if (stored(OPEN_KEY)) open();
+    else if (stored(WATCH_KEY)) load();
   }
 
   if (document.body) mount();
