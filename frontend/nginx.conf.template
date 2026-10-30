@@ -1,5 +1,6 @@
 # Served by the frontend image. EMBED_FRAME_ANCESTORS lists the sites allowed to frame the
 # widget (embed.html), e.g. "'self' https://intranet.example.com"; nginx fills it in at start.
+# Everything else, including the admin console, can only be framed by this origin.
 server {
     listen 80;
     root /usr/share/nginx/html;
@@ -9,6 +10,7 @@ server {
     }
 
     location / {
+        add_header Content-Security-Policy "frame-ancestors 'self'" always;
         try_files $uri $uri/ /index.html;
     }
 }

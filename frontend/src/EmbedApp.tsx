@@ -28,9 +28,20 @@ const ALLOWED_ORIGINS = new Set(
 );
 const HOST_ORIGIN = hostOrigin();
 
+if (window.parent !== window && !HOST_ORIGIN) {
+  console.warn(
+    "Ask Acme: this page is not an allowed host. Add its origin to VITE_EMBED_ALLOWED_ORIGINS.",
+  );
+}
+
 /** Tell the host page (widget.js) something happened: ready, close, unread, watch. */
 function notifyHost(type: string, detail: Record<string, unknown> = {}): void {
-  if (HOST_ORIGIN) window.parent.postMessage({ type: `docanswer:${type}`, ...detail }, HOST_ORIGIN);
+  if (HOST_ORIGIN) {
+    window.parent.postMessage({ type: `docanswer:${type}`, ...detail }, HOST_ORIGIN);
+  } else if (type === "close" && window.parent !== window) {
+    // Closing carries no data, and on phones the panel covers the page: always let it close.
+    window.parent.postMessage({ type: "docanswer:close" }, "*");
+  }
 }
 
 /** The assistant inside the widget iframe: one conversation, no admin tools. */
@@ -86,9 +97,13 @@ export function EmbedApp() {
   // While a request waits for a person, the host page keeps the widget loaded on every page,
   // so the reply can raise the unread dot even when the panel is closed.
   const waiting = support.requests.some((request) => request.status === "open");
+  const watchKnown = support.loaded;
   useEffect(() => {
-    if (user) notifyHost("watch", { on: waiting });
-  }, [user, waiting]);
+    // Signed out (or the session expired): nothing can arrive, so stop the background loads.
+    // While the session or the request list is still loading, leave the flag as it is.
+    if (!token) notifyHost("watch", { on: false });
+    else if (user && watchKnown) notifyHost("watch", { on: waiting });
+  }, [token, user, watchKnown, waiting]);
 
   async function handleSupportRequest(kind: SupportKind, message: ChatMessage) {
     await support.create(
@@ -196,11 +211,15 @@ function clearSaved(): void {
   }
 }
 
-/** The parent page's origin when it is allowed to host the widget, else null. */
+/**
+ * The parent page's origin when it is allowed to host the widget, else null. widget.js passes
+ * it as ?host=, which works in every browser and under any referrer policy; ancestorOrigins and
+ * the referrer are fallbacks for an iframe added without widget.js.
+ */
 function hostOrigin(): string | null {
   if (window.parent === window) return null;
   const ancestors = window.location.ancestorOrigins;
-  let origin = ancestors?.length ? ancestors[0] : null;
+  let origin = params.get("host") || (ancestors?.length ? ancestors[0] : null);
   if (!origin && document.referrer) {
     try {
       origin = new URL(document.referrer).origin;

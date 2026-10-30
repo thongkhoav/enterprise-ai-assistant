@@ -11,9 +11,9 @@ from pypdf import PdfReader
 
 SUPPORTED_SUFFIXES = {".pdf", ".docx", ".md", ".txt"}
 
-# A line that is only a page number footer or header: "Page 2", "Page 2 of 5", "2 of 5", "2 / 5".
+# A line that may be a page number footer or header: "Page 2", "Page 2 of 5", "2 of 5", "2 / 5".
 _PAGE_NUMBER_LINE = re.compile(
-    r"^[ \t]*(?:page[ \t]+\d+(?:[ \t]*(?:of|/)[ \t]*\d+)?|\d+[ \t]*(?:of|/)[ \t]*\d+)[ \t]*$",
+    r"^[ \t]*(page[ \t]+)?(\d+)(?:[ \t]*(?:of|/)[ \t]*(\d+))?[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -89,5 +89,16 @@ def _extract_pages(content: bytes, suffix: str) -> tuple[list[str], dict]:
 
 
 def strip_page_numbers(text: str) -> str:
-    """Drop page-number lines, which would otherwise end up inside chunks and quoted passages."""
-    return _PAGE_NUMBER_LINE.sub("", text).strip("\n")
+    """Drop page-number lines, which would otherwise end up inside chunks and quoted passages.
+
+    "Page N" always goes. "N of M" and "N / M" go only when they read as a page count
+    (1 <= N <= M), so content such as "24/7" stays. A bare number stays too.
+    """
+
+    def page_number(match: re.Match[str]) -> str:
+        labelled, current, total = match.group(1), int(match.group(2)), match.group(3)
+        if total is None:
+            return "" if labelled else match.group(0)
+        return "" if 1 <= current <= int(total) else match.group(0)
+
+    return _PAGE_NUMBER_LINE.sub(page_number, text).strip("\n")

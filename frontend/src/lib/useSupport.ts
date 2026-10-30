@@ -27,6 +27,8 @@ export function useSupport(
 ) {
   const [requests, setRequests] = useState<SupportRequest[]>([]);
   const [channels, setChannels] = useState<SupportChannel[]>([]);
+  // False until the first list arrives, so "no open requests" is not assumed while loading.
+  const [loaded, setLoaded] = useState(false);
   const openIds = useRef<Set<string>>(new Set());
   const resolvedRef = useRef(onResolved);
   resolvedRef.current = onResolved;
@@ -41,6 +43,7 @@ export function useSupport(
       openIds.current = new Set(items.filter((item) => item.status === "open").map((item) => item.id));
       remember(rememberKey, openIds.current);
       setRequests(items);
+      setLoaded(true);
     } catch {
       // Hand-off state is secondary; chat keeps working without it.
     }
@@ -49,6 +52,7 @@ export function useSupport(
   useEffect(() => {
     openIds.current = recall(rememberKey);
     setRequests([]);
+    setLoaded(false);
     void refresh();
   }, [refresh, isAdmin]);
 
@@ -96,7 +100,7 @@ export function useSupport(
     [settings, token, rememberKey],
   );
 
-  return { requests, channels, create, resolve, refresh };
+  return { requests, loaded, channels, create, resolve, refresh };
 }
 
 function recall(key: string | undefined): Set<string> {
