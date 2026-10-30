@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Benefits · Acme Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./hub.css" />
+  </head>
+  <body>
+    <header class="hub-top">
+      <div class="hub-top-inner">
+        <a class="hub-logo" href="./index.html"><span class="hub-logo-mark">A</span>Acme Hub</a>
+        <nav class="hub-nav">
+          <a href="./index.html">Home</a>
+          <a href="./benefits.html" class="active">Benefits</a>
+          <a href="./it.html">IT Help</a>
+          <a href="#">Policies</a>
+          <a href="#">People</a>
+        </nav>
+        <input class="hub-search" type="search" placeholder="Search Acme Hub" aria-label="Search" />
+        <div class="hub-user"><span>Linh Tran</span><div class="hub-avatar">LT</div></div>
+      </div>
+    </header>
+    <main class="hub-main">
+      <p class="hub-crumbs">Home / Benefits</p>
+      <h1 class="hub-page-title">Benefits 2026</h1>
+      <p class="hub-lede">
+        Health coverage starts on your first day. Here is a summary of what Acme offers employees
+        in the United States; the Benefits Guide has the details.
+      </p>
+      <div class="hub-banner">
+        <strong>Open enrollment: November 3 to 17.</strong>
+        Choose your 2027 medical plan and HSA in Workday. Outside this window you can only change
+        plans after a qualifying life event.
+      </div>
+
+      <div class="hub-grid">
+        <div class="hub-tiles">
+          <section class="hub-card hub-tile">
+            <span class="hub-tag teal">Medical</span>
+            <h3>Acme PPO or Acme HDHP</h3>
+            <div class="figure">90%</div>
+            <p>of your premium is paid by Acme, and 75% for dependents. Preventive care is free on both plans.</p>
+            <button type="button" class="hub-button ghost" data-ask="Which medical plan has the lower deductible?">Ask about this</button>
+          </section>
+          <section class="hub-card hub-tile">
+            <span class="hub-tag blue">Retirement</span>
+            <h3>401(k) with Fidelity</h3>
+            <div class="figure">4% match</div>
+            <p>Acme matches 100% of what you put in, up to 4% of base salary. The match vests immediately.</p>
+            <button type="button" class="hub-button ghost" data-ask="How much does Acme add to my 401(k)?">Ask about this</button>
+          </section>
+          <section class="hub-card hub-tile">
+            <span class="hub-tag amber">Wellbeing</span>
+            <h3>Wellness stipend and EAP</h3>
+            <div class="figure">$75 / month</div>
+            <p>For gyms, classes or apps, paid through payroll. Lyra counseling is free and confidential.</p>
+            <button type="button" class="hub-button ghost" data-ask="How many free counseling sessions does the EAP offer?">Ask about this</button>
+          </section>
+          <section class="hub-card hub-tile">
+            <span class="hub-tag rose">Savings</span>
+            <h3>Health savings account</h3>
+            <div class="figure">$750 – $1,500</div>
+            <p>Acme's yearly HSA contribution on the HDHP, for individual and family coverage.</p>
+            <button type="button" class="hub-button ghost" data-ask="How much does Acme put in the HSA for family coverage?">Ask about this</button>
+          </section>
+        </div>
+
+        <aside class="hub-stack">
+          <section class="hub-card hub-ask">
+            <h2>Questions about your benefits?</h2>
+            <p>Ask Acme reads the Benefits Guide and the Employee Handbook and links the page it used.</p>
+            <button type="button" class="hub-button" data-ask>Ask Acme</button>
+          </section>
+          <section class="hub-card">
+            <h2>Documents</h2>
+            <ul class="hub-list">
+              <li><span class="hub-file"><i>PDF</i>Benefits Guide 2026</span><span>3 pages</span></li>
+              <li><span class="hub-file"><i>PDF</i>Employee Handbook</span><span>5 pages</span></li>
+            </ul>
+          </section>
+          <section class="hub-card">
+            <h2>Key dates</h2>
+            <ul class="hub-list">
+              <li>Open enrollment<span>Nov 3 – 17</span></li>
+              <li>New plans start<span>Jan 1, 2027</span></li>
+              <li>Life event changes<span>within 30 days</span></li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="./hub.js"></script>
+    <!-- The assistant: one script tag, see public/widget.js. -->
+    <script src="/widget.js" data-name="Ask Acme" data-context="benefits" defer></script>
+  </body>
+</html>

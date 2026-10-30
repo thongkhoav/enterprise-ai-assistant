@@ -8,6 +8,8 @@ import type { Settings } from "../types";
 type AuthScreenProps = {
   settings: Settings;
   onAuthenticated: (token: string) => void;
+  /** Just the sign-in card, for the embedded widget. */
+  compact?: boolean;
 };
 
 type Mode = "login" | "register";
@@ -21,7 +23,7 @@ const FEATURES = [
   { icon: ShieldCheck, text: "Admins curate the PDFs, Word files and wikis; everyone else asks" },
 ];
 
-export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
+export function AuthScreen({ settings, onAuthenticated, compact = false }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,40 +64,42 @@ export function AuthScreen({ settings, onAuthenticated }: AuthScreenProps) {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="auth-hero">
-        <div className="brand">
-          <div className="brand-mark">
-            <FileText size={18} />
+    <main className={`auth-shell ${compact ? "compact" : ""}`}>
+      {!compact && (
+        <section className="auth-hero">
+          <div className="brand">
+            <div className="brand-mark">
+              <FileText size={18} />
+            </div>
+            <div>
+              <h1>{APP_NAME}</h1>
+              <p>{APP_SUBTITLE}</p>
+            </div>
           </div>
-          <div>
-            <h1>{APP_NAME}</h1>
-            <p>{APP_SUBTITLE}</p>
+          <h2>{APP_TAGLINE}.</h2>
+          <ul>
+            {FEATURES.map(({ icon: Icon, text }) => (
+              <li key={text}>
+                <span>
+                  <Icon size={17} />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
+          <div className="hero-preview" aria-hidden>
+            <p>
+              Full-time employees get 20 days of paid time off per year
+              <span className="cite">1</span>, and up to 5 unused days carry over to the next year
+              <span className="cite">1</span>.
+            </p>
+            <div>
+              <span className="source-n">1</span> acme_employee_handbook.pdf · p. 2
+              <span className="source-score">85%</span>
+            </div>
           </div>
-        </div>
-        <h2>{APP_TAGLINE}.</h2>
-        <ul>
-          {FEATURES.map(({ icon: Icon, text }) => (
-            <li key={text}>
-              <span>
-                <Icon size={17} />
-              </span>
-              {text}
-            </li>
-          ))}
-        </ul>
-        <div className="hero-preview" aria-hidden>
-          <p>
-            Full-time employees get 20 days of paid time off per year
-            <span className="cite">1</span>, and up to 5 unused days carry over to the next year
-            <span className="cite">1</span>.
-          </p>
-          <div>
-            <span className="source-n">1</span> acme_employee_handbook.pdf · p. 2
-            <span className="source-score">85%</span>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="auth-panel">
         <div className="auth-card">

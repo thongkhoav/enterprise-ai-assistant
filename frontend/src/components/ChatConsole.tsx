@@ -11,8 +11,6 @@ import {
   FilePlus2,
   Hash,
   Headset,
-  HeartPulse,
-  Laptop,
   LoaderCircle,
   Mail,
   Menu,
@@ -20,9 +18,7 @@ import {
   PanelRight,
   Paperclip,
   Phone,
-  Plane,
   Sparkles,
-  TicketCheck,
   TriangleAlert,
   UploadCloud,
   UserRound,
@@ -30,6 +26,7 @@ import {
 } from "lucide-react";
 import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
+import { type Starter, STARTERS } from "../lib/starters";
 import { ACCEPTED_FILES, type UploadStatus } from "../lib/useDocuments";
 import type {
   ChatMessage,
@@ -56,34 +53,14 @@ type ChatConsoleProps = {
   onUpload: (files: FileList | null) => void;
   onToggleInspector: () => void;
   onOpenSidebar: () => void;
+  /** Replaces the default top bar, e.g. with the embedded widget's header. */
+  header?: ReactNode;
+  starters?: Starter[];
+  greeting?: string;
+  /** Replaces the keyboard hint under the composer. */
+  hint?: string;
+  placeholder?: string;
 };
-
-const SUGGESTIONS = [
-  {
-    icon: HeartPulse,
-    kind: "Benefits",
-    tone: "blue",
-    text: "If I earn $90,000 and put 6% in my 401(k), how much does Acme add?",
-  },
-  {
-    icon: Plane,
-    kind: "Travel",
-    tone: "amber",
-    text: "What is the hotel limit in London?",
-  },
-  {
-    icon: Laptop,
-    kind: "IT help",
-    tone: "green",
-    text: "My VPN won't connect. What should I try?",
-  },
-  {
-    icon: TicketCheck,
-    kind: "IT request",
-    tone: "violet",
-    text: "Create a high priority ticket: my laptop screen is cracked.",
-  },
-];
 
 export function ChatConsole({
   title,
@@ -100,6 +77,11 @@ export function ChatConsole({
   onUpload,
   onToggleInspector,
   onOpenSidebar,
+  header,
+  starters = STARTERS.default,
+  greeting = "What do you want to know?",
+  hint,
+  placeholder = "Ask about your documents...",
 }: ChatConsoleProps) {
   const [draft, setDraft] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -153,34 +135,41 @@ export function ChatConsole({
       }}
       onDrop={handleDrop}
     >
-      <header className="topbar">
-        <button type="button" className="icon-button menu" onClick={onOpenSidebar}>
-          <Menu size={18} />
-        </button>
-        <div className="topbar-title">
-          <h2>{title}</h2>
-          <p>
-            <span className="live-dot" />
-            {documentCount} documents indexed
-          </p>
-        </div>
-        {canUpload && (
-          <button
-            type="button"
-            className={`toggle ${inspectorOpen ? "on" : ""}`}
-            onClick={onToggleInspector}
-            title="Show retrieval trace"
-          >
-            <PanelRight size={16} />
-            <span>Trace</span>
+      {header ?? (
+        <header className="topbar">
+          <button type="button" className="icon-button menu" onClick={onOpenSidebar}>
+            <Menu size={18} />
           </button>
-        )}
-      </header>
+          <div className="topbar-title">
+            <h2>{title}</h2>
+            <p>
+              <span className="live-dot" />
+              {documentCount} documents indexed
+            </p>
+          </div>
+          {canUpload && (
+            <button
+              type="button"
+              className={`toggle ${inspectorOpen ? "on" : ""}`}
+              onClick={onToggleInspector}
+              title="Show retrieval trace"
+            >
+              <PanelRight size={16} />
+              <span>Trace</span>
+            </button>
+          )}
+        </header>
+      )}
 
       <div className="messages" ref={scrollRef}>
         <div className="thread">
           {messages.length === 0 ? (
-            <EmptyState disabled={isStreaming} onPick={send} />
+            <EmptyState
+              greeting={greeting}
+              starters={starters}
+              disabled={isStreaming}
+              onPick={send}
+            />
           ) : (
             messages.map((message) =>
               message.role === "user" ? (
@@ -257,7 +246,7 @@ export function ChatConsole({
             ref={inputRef}
             value={draft}
             rows={1}
-            placeholder="Ask about your documents..."
+            placeholder={placeholder}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -275,9 +264,13 @@ export function ChatConsole({
             {isStreaming ? <LoaderCircle className="spin" size={18} /> : <ArrowUp size={18} />}
           </button>
         </form>
-        <p className="composer-hint">
-          Enter to send · Shift + Enter for a new line
-          {canUpload && " · drop files anywhere to add them to the knowledge base"}
+        <p className={`composer-hint ${hint ? "custom" : ""}`}>
+          {hint ?? (
+            <>
+              Enter to send · Shift + Enter for a new line
+              {canUpload && " · drop files anywhere to add them to the knowledge base"}
+            </>
+          )}
         </p>
       </div>
 
@@ -292,19 +285,29 @@ export function ChatConsole({
   );
 }
 
-function EmptyState({ disabled, onPick }: { disabled: boolean; onPick: (text: string) => void }) {
+function EmptyState({
+  greeting,
+  starters,
+  disabled,
+  onPick,
+}: {
+  greeting: string;
+  starters: Starter[];
+  disabled: boolean;
+  onPick: (text: string) => void;
+}) {
   return (
     <div className="empty-state">
       <div className="hero-mark">
         <Sparkles size={26} />
       </div>
-      <h3>What do you want to know?</h3>
+      <h3>{greeting}</h3>
       <p>
         Answers cite the exact passage they come from. If the documents don't cover a question,
         the assistant says so instead of guessing.
       </p>
       <div className="suggestions">
-        {SUGGESTIONS.map(({ icon: Icon, kind, tone, text }) => (
+        {starters.map(({ icon: Icon, kind, tone, text }) => (
           <button
             type="button"
             className={`suggestion ${tone}`}
@@ -776,11 +779,15 @@ function splitSentences(text: string): string[] {
 }
 
 /**
- * Drop markdown heading and bullet markers that chunking flattened into the passage, and the
- * sentence fragment a chunk can start with ("according to these tiers. Uptime from ...").
+ * Drop markdown heading and bullet markers that chunking flattened into the passage, a PDF page
+ * footer ("Page 2") at the start, and the sentence fragment a chunk can start with ("according
+ * to these tiers. Uptime from ...").
  */
 function cleanPassage(text: string | null | undefined): string {
-  const cleaned = (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
+  const cleaned = (text || "")
+    .replace(/(^|\s)(#{1,6}|-)\s+/g, "$1")
+    .replace(/^\s*Page \d+\s+/, "")
+    .trim();
   const fragment = /^[a-z][^.!?]{0,120}[.!?]\s+(?=[A-Z])/.exec(cleaned);
   return fragment ? cleaned.slice(fragment[0].length) : cleaned;
 }
