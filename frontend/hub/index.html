@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home · Acme Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./hub.css" />
+  </head>
+  <body>
+    <header class="hub-top">
+      <div class="hub-top-inner">
+        <a class="hub-logo" href="./index.html"><span class="hub-logo-mark">A</span>Acme Hub</a>
+        <nav class="hub-nav">
+          <a href="./index.html" class="active">Home</a>
+          <a href="./benefits.html">Benefits</a>
+          <a href="./it.html">IT Help</a>
+          <a href="#">Policies</a>
+          <a href="#">People</a>
+        </nav>
+        <input class="hub-search" type="search" placeholder="Search Acme Hub" aria-label="Search" />
+        <div class="hub-user"><span>Linh Tran</span><div class="hub-avatar">LT</div></div>
+      </div>
+    </header>
+    <main class="hub-main">
+      <div class="hub-grid">
+        <div class="hub-stack">
+          <section class="hub-welcome">
+            <p data-today>Thursday, October 30</p>
+            <h1 data-greeting>Good morning, Linh</h1>
+            <div class="hub-stats">
+              <div class="hub-stat"><span>PTO balance</span><strong>14.5 days</strong></div>
+              <div class="hub-stat"><span>Next payday</span><strong>Nov 14</strong></div>
+              <div class="hub-stat"><span>Open IT tickets</span><strong>0</strong></div>
+            </div>
+          </section>
+
+          <section class="hub-card">
+            <div class="hub-card-head">
+              <h2>Announcements</h2>
+              <a href="#">All news</a>
+            </div>
+            <div class="hub-news">
+              <a href="./benefits.html">
+                <span class="hub-tag teal">Benefits</span>
+                <strong>Open enrollment for 2027 runs November 3 to 17</strong>
+                <p>Review your medical plan, HSA and 401(k) rate in Workday before the window closes.</p>
+              </a>
+              <a href="./it.html">
+                <span class="hub-tag blue">IT</span>
+                <strong>Laptop refresh for the 2023 cohort starts this month</strong>
+                <p>The IT portal shows your swap date. New laptops ship five business days before it.</p>
+              </a>
+              <a href="#">
+                <span class="hub-tag rose">Company</span>
+                <strong>Q4 all-hands on Thursday, November 6</strong>
+                <p>Product roadmap, Q3 results and a Q&amp;A with the leadership team. Recording in Slack.</p>
+              </a>
+              <a href="#">
+                <span class="hub-tag amber">Travel</span>
+                <strong>Book trips through Navan at least 14 days ahead</strong>
+                <p>Hotels in New York, London, San Francisco and Tokyo have a higher nightly cap.</p>
+              </a>
+            </div>
+          </section>
+        </div>
+
+        <aside class="hub-stack">
+          <section class="hub-card hub-ask">
+            <h2>Have a question?</h2>
+            <p>
+              Ask Acme answers HR, benefits and IT questions from company documents and shows
+              where the answer comes from. If it can't help, it gets you to the right person.
+            </p>
+            <button type="button" class="hub-button" data-ask>Ask Acme</button>
+          </section>
+
+          <section class="hub-card">
+            <h2>Quick links</h2>
+            <div class="hub-links">
+              <a href="#"><span class="hub-app" style="background: #f97316">W</span>Workday</a>
+              <a href="#"><span class="hub-app" style="background: #16a34a">E</span>Expensify</a>
+              <a href="#"><span class="hub-app" style="background: #0ea5e9">N</span>Navan</a>
+              <a href="./it.html"><span class="hub-app" style="background: #4f46e5">IT</span>IT portal</a>
+              <a href="#"><span class="hub-app" style="background: #1e293b">O</span>Okta</a>
+              <a href="#"><span class="hub-app" style="background: #15803d">F</span>Fidelity</a>
+            </div>
+          </section>
+
+          <section class="hub-card">
+            <h2>Upcoming</h2>
+            <ul class="hub-events">
+              <li><div class="hub-date">Nov<b>3</b></div><div>Open enrollment starts<span>Benefits · Workday</span></div></li>
+              <li><div class="hub-date">Nov<b>6</b></div><div>Q4 all-hands<span>16:00 UTC · Zoom and HQ</span></div></li>
+              <li><div class="hub-date">Nov<b>27</b></div><div>Thanksgiving<span>US offices closed</span></div></li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="./hub.js"></script>
+    <!-- The assistant: one script tag, see public/widget.js. -->
+    <script src="/widget.js" data-name="Ask Acme" data-context="" defer></script>
+  </body>
+</html>

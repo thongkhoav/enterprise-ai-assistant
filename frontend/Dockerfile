@@ -10,7 +10,9 @@ ENV VITE_API_KEY=$VITE_API_KEY
 COPY package.json ./
 RUN npm install
 
-COPY index.html tsconfig.json tsconfig.node.json vite.config.ts ./
+COPY index.html embed.html tsconfig.json tsconfig.node.json vite.config.ts ./
+COPY hub ./hub
+COPY public ./public
 COPY src ./src
 
 RUN npm run build

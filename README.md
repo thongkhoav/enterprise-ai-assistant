@@ -28,6 +28,28 @@ documents and shows the passage (and PDF page) each answer comes from.
 
 - `backend/`: FastAPI + LangGraph + Chroma RAG API
 - `frontend/`: Vite + React + TypeScript UI for upload, streaming chat, citations, and tools
+- `frontend/public/widget.js`: the embeddable widget; `frontend/embed.html` is the chat inside it
+- `frontend/hub/`: Acme Hub, a sample company intranet that hosts the widget
+
+## Embed the Assistant in Any Site
+
+The assistant usually lives where employees already work: the intranet, the HR portal, the IT
+portal. One script tag adds an "Ask Acme" button that opens the chat in a side panel:
+
+```html
+<script src="https://your-docanswer-host/widget.js"
+        data-name="Ask Acme" data-context="benefits" defer></script>
+```
+
+- `data-context` picks the starter questions for the page (`benefits`, `it`, or none).
+- `window.DocAnswer.open("How much does Acme add to my 401(k)?")` opens the panel and asks, e.g.
+  from an "Ask about this" button.
+- The panel keeps its conversation across page loads, shows a dot on the button when the support
+  team replies, and can open the conversation in the full app.
+
+Try it at http://localhost:5173/hub/ after starting the frontend: Home, Benefits and IT Help pages,
+each with the widget. Employees use the widget; admins manage documents and the inbox in the
+full app at http://localhost:5173.
 
 ## Run Backend
 
