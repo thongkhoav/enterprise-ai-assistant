@@ -1,7 +1,7 @@
 import jwt
 import pytest
 
-from app.core.config import Settings
+from app.core.config import DEV_JWT_SECRET, Settings
 from app.core.security import (
     create_access_token,
     decode_access_token,
@@ -36,3 +36,15 @@ def test_access_token_rejects_wrong_secret() -> None:
 
     with pytest.raises(jwt.PyJWTError):
         decode_access_token(other, token)
+
+
+@pytest.mark.parametrize("secret", [DEV_JWT_SECRET, "too-short"])
+def test_production_refuses_a_weak_jwt_secret(secret: str) -> None:
+    with pytest.raises(ValueError, match="JWT_SECRET"):
+        Settings(app_env="production", jwt_secret=secret)
+
+
+def test_production_accepts_a_random_jwt_secret() -> None:
+    settings = Settings(app_env="production", jwt_secret="a" * 64)
+
+    assert settings.app_env == "production"

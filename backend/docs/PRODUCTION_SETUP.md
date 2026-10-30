@@ -16,9 +16,10 @@ Recommended production components:
 - Reverse proxy or API gateway with TLS
 - CI/CD pipeline that runs lint, tests, build, and deploy
 
-The current skeleton uses local Chroma for vectors and Postgres for tickets. Chroma still needs to
-be replaced or backed by a persistent/managed service before handling real customer data; the
-ticket store already speaks Postgres, so production mainly needs a managed/HA Postgres instance.
+The app uses local Chroma for vectors and Postgres for users, conversations, tickets and support
+requests. Chroma still needs to be replaced or backed by a persistent/managed service before
+handling real company data; everything else already speaks Postgres, so production mainly needs a
+managed/HA Postgres instance.
 
 ## Build The Backend Image
 
@@ -43,7 +44,8 @@ Use a secrets manager rather than committing `.env.production`.
 
 ```bash
 APP_ENV=production
-APP_API_KEY=<strong-random-token>
+JWT_SECRET=<random string, e.g. openssl rand -hex 32>
+ADMIN_EMAILS=<comma-separated admin emails>
 OPENAI_API_KEY=<provider-key-if-using-openai>
 OPENAI_MODEL=<model-name>
 EMBEDDING_PROVIDER=<openai|local|auto>
@@ -55,8 +57,10 @@ TRACE_LOG_PATH=/app/logs/traces.jsonl
 CORS_ORIGINS=https://your-frontend.example.com
 ```
 
-For a real product, replace `APP_API_KEY` bearer auth with user authentication such as OAuth2/OIDC
-or signed JWTs. Keep the bearer token only for internal demos or staging.
+With `APP_ENV=production` the API refuses to start while `JWT_SECRET` is the development default or
+shorter than 32 characters. Keep `DEMO_ROLE_SWITCH=false`: it lets any signed-in user become an
+admin. For company-wide sign-in, put OAuth2/OIDC (your identity provider) in front of the JWT
+issue step.
 
 ## Storage Choices
 
@@ -225,9 +229,9 @@ Then test an authenticated chat request:
 
 ```bash
 curl -X POST https://api.example.com/v1/chat \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorization: Bearer <token from /v1/auth/login>" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"prod-smoke","message":"What is the incident update policy?"}'
+  -d '{"message":"What is the incident update policy?"}'
 ```
 
 Confirm:
@@ -238,9 +242,9 @@ Confirm:
 - route is expected
 - logs/traces are visible in the observability system
 
-## Migration Path From Skeleton To Production
+## Hardening Path
 
-1. Replace bearer token auth with OIDC/JWT.
+1. Add OIDC sign-in through the company identity provider.
 2. Point `DATABASE_URL` at managed/HA Postgres and adopt Alembic migrations.
 3. Replace local Chroma with managed vector DB or persistent pgvector.
 4. Move uploads to object storage.

@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Example channels for the Acme sample company; set SUPPORT_CHANNELS to your own.
@@ -18,15 +18,17 @@ DEFAULT_SUPPORT_CHANNELS = (
     {"kind": "teams", "label": "Microsoft Teams", "href": "https://teams.microsoft.com/"},
 )
 
+# Public in this repo, so anyone could sign tokens with it: local development only.
+DEV_JWT_SECRET = "dev-jwt-secret-change-me-in-production-0123456789"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Enterprise AI Assistant API"
     app_env: str = "local"
-    app_api_key: str = "dev-secret"
 
-    jwt_secret: str = "dev-jwt-secret-change-me-in-production-0123456789"
+    jwt_secret: str = DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 
@@ -70,6 +72,17 @@ class Settings(BaseSettings):
         default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173",
         alias="CORS_ORIGINS",
     )
+
+    @model_validator(mode="after")
+    def _require_real_secret_in_production(self) -> Settings:
+        if self.app_env == "production" and (
+            self.jwt_secret == DEV_JWT_SECRET or len(self.jwt_secret) < 32
+        ):
+            raise ValueError(
+                "JWT_SECRET must be set to a random string of at least 32 characters when "
+                "APP_ENV=production, e.g. the output of `openssl rand -hex 32`."
+            )
+        return self
 
     @property
     def admin_emails(self) -> set[str]:

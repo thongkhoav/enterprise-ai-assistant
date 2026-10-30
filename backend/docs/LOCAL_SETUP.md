@@ -42,16 +42,20 @@ Minimum local values:
 
 ```bash
 APP_ENV=local
-APP_API_KEY=dev-secret
-EMBEDDING_PROVIDER=hash
+JWT_SECRET=dev-jwt-secret-change-me-in-production-0123456789
+ADMIN_EMAILS=you@acme.example
+EMBEDDING_PROVIDER=local
 CHROMA_PATH=data/chroma
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/enterprise_ai
 TRACE_LOG_PATH=logs/traces.jsonl
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-`OPENAI_API_KEY` is optional. Without it, the app returns deterministic mock answers and can still
-exercise upload, chunking, retrieval, tools, citations, and traces.
+`OPENAI_API_KEY` is optional. Without it, answers quote the best-matching source sentences, and
+upload, chunking, retrieval, tools, citations and traces all still work.
+
+The development `JWT_SECRET` is public. With `APP_ENV=production` the API refuses to start until it
+is replaced by a random string of at least 32 characters.
 
 ## Start Postgres
 
@@ -63,8 +67,8 @@ docker compose up -d db
 ```
 
 This starts Postgres 16 on `localhost:5433` with database `enterprise_ai` (user `postgres`,
-password `postgres`), matching the default `DATABASE_URL` above. The `tickets` table is created
-automatically on the first ticket write, so no manual migration step is needed.
+password `postgres`), matching the default `DATABASE_URL` above. The API creates its tables on
+startup, so no manual migration step is needed.
 
 Host port `5433` is used on purpose so the container does not clash with a Postgres instance you may
 already run locally on the default `5432`. Inside Docker Compose the API talks to the database over
@@ -140,20 +144,30 @@ Health:
 curl http://localhost:8000/health
 ```
 
+Get a token (register once; afterwards use `/v1/auth/login` with the email and password). Emails in
+`ADMIN_EMAILS` register as admins, which upload needs:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@acme.example","password":"choose-a-password","full_name":"Your Name"}' \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')
+```
+
 Chat:
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"local-demo","message":"What approvals are needed for production data access?"}'
+  -d '{"message":"What approvals are needed for production data access?"}'
 ```
 
 Upload:
 
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@docs/demo_upload/acme_parental_leave_policy_2026.pdf" \
   -F "source=acme_parental_leave_policy_2026.pdf"
 ```
@@ -162,16 +176,16 @@ Streaming chat:
 
 ```bash
 curl -N -X POST http://localhost:8000/v1/chat/stream \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"local-demo","message":"Create a high priority ticket for a failed import."}'
+  -d '{"message":"Create a high priority ticket for a failed import."}'
 ```
 
 List tickets (persisted in Postgres through the SQLModel ORM):
 
 ```bash
 curl http://localhost:8000/v1/tickets \
-  -H "Authorization: Bearer dev-secret"
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Run Quality Checks
@@ -224,5 +238,6 @@ If FastEmbed model download is slow or rate-limited, set a Hugging Face token in
 export HF_TOKEN=...
 ```
 
-If the frontend gets `401`, make sure the frontend API key matches `APP_API_KEY` in backend `.env`.
+If the frontend gets `401`, sign in again: tokens expire after `ACCESS_TOKEN_EXPIRE_MINUTES` and stop
+working when `JWT_SECRET` changes.
 

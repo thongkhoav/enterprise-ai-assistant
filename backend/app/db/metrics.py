@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
-FAKE_DATABASE = {
+# Sample metrics for the Acme demo company. A real deployment swaps this for a read-only
+# query against its warehouse or reporting database.
+COMPANY_METRICS = {
     "customers": {
         "total": 12840,
         "enterprise": 214,
@@ -51,7 +53,7 @@ TABLE_KEYWORDS = (
 )
 
 
-def query_fake_database(question: str) -> dict:
+def query_metrics(question: str) -> dict:
     normalized = question.lower()
     table = next(
         (name for name, words in TABLE_KEYWORDS if any(word in normalized for word in words)),
@@ -60,6 +62,6 @@ def query_fake_database(question: str) -> dict:
 
     return {
         "table": table,
-        "rows": FAKE_DATABASE[table],
+        "rows": COMPANY_METRICS[table],
         "queried_at": datetime.now(UTC).isoformat(),
     }

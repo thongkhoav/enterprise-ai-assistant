@@ -3,8 +3,8 @@
 ## Architecture Overview
 
 A FastAPI backend that answers questions over your own documents using Retrieval-Augmented
-Generation (RAG), orchestrated as a small agent graph that can also call business tools (query a
-demo database, create a ticket). It runs fully offline with deterministic fallbacks, or with OpenAI
+Generation (RAG), orchestrated as a small agent graph that can also call business tools (query company
+metrics, create a ticket). It runs fully offline with deterministic fallbacks, or with OpenAI
 when a key is configured.
 
 ```mermaid
@@ -13,7 +13,7 @@ flowchart LR
     API --> Runner[AgentRunner / LangGraph]
     Runner --> Router --> Retriever --> ToolCaller --> AnswerGen
     Retriever --> VS[(Chroma vector store)]
-    ToolCaller --> FakeDB[(Fake business DB)]
+    ToolCaller --> Metrics[(Company metrics)]
     ToolCaller --> Tickets[(Postgres tickets)]
     AnswerGen -->|OpenAI or mock| Client
     Runner --> Trace[(JSONL traces)]
@@ -28,9 +28,9 @@ flowchart LR
 5. `AgentRunner` starts a LangGraph run with a fresh `trace_id` and `AgentState`.
 6. Router classifies the request as `rag`, `database`, or `ticket`.
 7. Retriever searches Chroma for relevant document chunks (runs for every route).
-8. Tool caller always runs `search_docs`, plus `query_fake_database` or `create_ticket` by route.
-9. Answer generator builds the final response (OpenAI with citation instructions, or a mock answer);
-   the assistant message is persisted to the conversation.
+8. Tool caller always runs `search_docs`, plus `query_metrics` or `create_ticket` by route.
+9. Answer generator builds the final response (OpenAI with citation instructions, or
+   an offline extractive answer); the assistant message is persisted to the conversation.
 10. Trace metadata is appended to `logs/traces.jsonl`.
 
 ## Techniques & Patterns
@@ -45,7 +45,7 @@ flowchart LR
   between nodes (`agents/graph.py`, `agents/state.py`).
 - **Intent routing** — lightweight keyword classification picks the route (`rag` / `database` /
   `ticket`) before retrieval and tool calls (`agents/graph.py`).
-- **Tool calling** — discrete tools the agent can invoke: `search_docs`, `query_fake_database`,
+- **Tool calling** — discrete tools the agent can invoke: `search_docs`, `query_metrics`,
   `create_ticket` (`agents/tools.py`).
 - **Text chunking with overlap** — whitespace-normalized, fixed-size character windows with overlap
   and stable content-hash ids for idempotent indexing (`services/chunking.py`).
@@ -55,8 +55,8 @@ flowchart LR
   distance→score normalization `1 / (1 + distance)` (`services/vector_store.py`).
 - **Multi-format document ingestion** — PDF (pypdf), DOCX (python-docx), and TXT/MD loaders, with
   SHA-1 content hashing for document ids (`services/document_loader.py`).
-- **Streaming responses (SSE)** — `/v1/chat/stream` emits Server-Sent Events; currently simulated
-  token streaming (answer split word-by-word) plus a final `done` event (`api/routes/chat.py`).
+- **Streaming responses (SSE)** — `/v1/chat/stream` relays the model's tokens as Server-Sent
+  Events, then a `done` event and a `suggestions` event (`api/routes/chat.py`).
 - **ORM persistence** — tickets use the SQLModel ORM (SQLAlchemy + Pydantic) over an async engine,
   with the FastAPI session-dependency pattern (`get_session` / `SessionDep`)
   (`db/models.py`, `db/database.py`, `db/tickets.py`).
@@ -64,7 +64,8 @@ flowchart LR
   `lru_cache` so each is constructed once per process (`api/deps.py`).
 - **Configuration via environment** — `pydantic-settings` loads typed settings from `.env`
   (`core/config.py`).
-- **Token-based auth** — a shared bearer token guards all non-health routes (`api/deps.py`).
+- **JWT auth with roles** — signed access tokens guard all non-health routes; admins manage
+  documents and the support inbox (`core/security.py`, `api/deps.py`).
 - **Observability / tracing** — every run appends a JSONL record with route, counts, and rough
   token/cost estimates (`telemetry/tracing.py`).
 - **Async concurrency** — async end to end; blocking libraries (Chroma, fastembed) are offloaded
@@ -93,11 +94,10 @@ flowchart LR
 
 ## Production Upgrades
 
-- Replace bearer token auth with OAuth/JWT.
+- Add OAuth2/OIDC sign-in through the company identity provider.
 - Move Chroma to a managed vector database such as Pinecone, Weaviate, or Qdrant.
-- Replace the fake database with real Postgres or warehouse queries.
+- Replace the sample metrics with read-only warehouse queries.
 - Add schema migrations (Alembic) instead of `create_all` bootstrap.
-- Implement real token streaming from the model instead of simulated word-by-word streaming.
 - Add background ingestion with Celery, Temporal, or a cloud queue.
 - Add tracing with OpenTelemetry, LangSmith, or cloud-native logs.
 - Add eval gates in CI before prompt or retrieval changes are merged.

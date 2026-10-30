@@ -1,10 +1,10 @@
 import pytest
 
-from app.db.fake_database import query_fake_database
+from app.db.metrics import query_metrics
 
 
-def test_query_fake_database_routes_revenue() -> None:
-    result = query_fake_database("What is current revenue?")
+def test_query_metrics_routes_revenue() -> None:
+    result = query_metrics("What is current revenue?")
 
     assert result["table"] == "revenue"
     assert "mrr_usd" in result["rows"]
@@ -21,5 +21,5 @@ def test_query_fake_database_routes_revenue() -> None:
         ("How many enterprise customers do we have?", "customers"),
     ],
 )
-def test_query_fake_database_picks_the_table(question: str, table: str) -> None:
-    assert query_fake_database(question)["table"] == table
+def test_query_metrics_picks_the_table(question: str, table: str) -> None:
+    assert query_metrics(question)["table"] == table

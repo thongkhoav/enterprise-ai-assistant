@@ -181,7 +181,7 @@ class RAGService:
     def _extractive_answer(self, question: str, docs: list[dict], tool_results: list[dict]) -> str:
         """Offline answer: the source sentences that share the most words with the question."""
         rows = next(
-            (item["result"] for item in tool_results if item["name"] == "query_fake_database"),
+            (item["result"] for item in tool_results if item["name"] == "query_metrics"),
             None,
         )
         if rows:

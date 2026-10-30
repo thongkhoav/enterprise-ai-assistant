@@ -1,2 +1,2 @@
-"""Local stores and fake enterprise data."""
+"""Postgres stores and the sample company metrics."""
 

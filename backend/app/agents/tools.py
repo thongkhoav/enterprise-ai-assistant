@@ -1,6 +1,6 @@
 import re
 
-from app.db.fake_database import query_fake_database
+from app.db.metrics import query_metrics
 from app.db.tickets import TicketStore
 
 HIGH_PRIORITY_KEYWORDS = ("urgent", "p0", "critical", "high", "asap", "emergency")
@@ -52,7 +52,7 @@ async def search_docs_tool(documents: list[dict]) -> dict:
 
 
 async def query_database_tool(question: str) -> dict:
-    return query_fake_database(question)
+    return query_metrics(question)
 
 
 async def create_ticket_tool(question: str, ticket_store: TicketStore) -> dict:

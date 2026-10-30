@@ -1,153 +1,126 @@
 # Enterprise AI Assistant API
 
-FastAPI skeleton for an enterprise AI assistant with:
+FastAPI backend for the company knowledge assistant:
 
-- Bearer-token auth
-- Streaming chat endpoint
-- PDF/DOCX/TXT/MD upload
-- Chunking, embeddings, and Chroma vector search
-- RAG answers with citations
+- JWT sign-in with admin and member roles (admins manage documents and the support inbox)
+- PDF, DOCX, Markdown and text upload, chunked and embedded into Chroma
+- RAG answers with numbered citations, streamed token by token, and "I don't know" when no source
+  clears the relevance threshold
+- Follow-up suggestions, support requests ("Talk to a person", "Request this document") and admin
+  replies posted back into the employee's conversation
 - LangGraph agent flow: router -> retriever -> tool caller -> answer generator
-- Tools: search docs, query a fake database, create a ticket
-- JSONL trace logs with estimated latency/cost fields
-- Eval runner and sample eval set
-- Docker Compose and GitHub Actions
+- Tools: search docs, query company metrics, create a ticket
+- Conversations, tickets and support requests in Postgres (SQLModel)
+- JSONL trace logs with latency and estimated cost
+- Eval runner with 65 sample questions
 
-## Quick Start
-
-Use Python 3.11 or newer and `uv`.
-
-Detailed guides:
+Guides:
 
 - [Local setup](docs/LOCAL_SETUP.md)
 - [Production setup](docs/PRODUCTION_SETUP.md)
+- [System design](docs/SYSTEM_DESIGN.md)
 
-```bash
-brew install uv
-```
+## Quick Start
+
+Use Python 3.11 or newer and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 cd backend
-uv sync --extra dev
+uv sync --extra dev --extra local-embeddings
 cp .env.example .env
-```
-
-Start Postgres (used for tickets). The bundled Compose `db` service runs it on host port `5433`,
-matching the default `DATABASE_URL` in `.env.example`:
-
-```bash
 docker compose up -d db
-```
-
-The app creates its tables on startup, so Postgres must be reachable before you run `make dev`.
-Host port `5433` avoids clashing with a Postgres instance you may already run locally on `5432`.
-
-Set `OPENAI_API_KEY` in `.env` when you want real LLM and embedding calls.
-Without it, the app still runs with deterministic local embeddings and mock answers (tickets still
-require Postgres).
-
-```bash
+make seed
 make dev
 ```
+
+Postgres runs on host port `5433`, matching the default `DATABASE_URL`. The app creates its
+tables on startup, so start Postgres before `make dev`.
+
+Set `OPENAI_API_KEY` in `.env` for generated answers. Without it the app still runs in an offline
+extractive mode that quotes the best-matching source sentences.
 
 Open:
 
 - API docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 
-## Seed Sample Knowledge
+## Call the API
 
-In another terminal:
+Every route except `/health` needs a JWT. Register (or log in with `/v1/auth/login`) and keep
+the token:
 
 ```bash
-make seed
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@acme.example","password":"choose-a-password","full_name":"Your Name"}' \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])')
 ```
 
-This indexes every Markdown, PDF and DOCX file under `docs/seed/`.
-
-Or upload your own document:
+Accounts whose email is listed in `ADMIN_EMAILS` register as admins. Only admins can upload or
+delete documents:
 
 ```bash
 curl -X POST http://localhost:8000/v1/documents/upload \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@docs/demo_upload/acme_parental_leave_policy_2026.pdf" \
   -F "source=acme_parental_leave_policy_2026.pdf"
 ```
 
-## Chat
-
-JSON response:
+Chat (JSON):
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"demo","message":"What is the refund SLA policy?"}'
+  -d '{"message":"How many PTO days carry over to next year?"}'
 ```
 
-Streaming response:
+Chat (server-sent events):
 
 ```bash
 curl -N -X POST http://localhost:8000/v1/chat/stream \
-  -H "Authorization: Bearer dev-secret" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"demo","message":"Create a high priority ticket for a failed enterprise import"}'
+  -d '{"message":"Create a high priority ticket: my laptop screen is cracked."}'
 ```
 
-## Evals
+Pass the returned `conversation_id` to continue the same conversation.
 
-Start the API first, then run:
+## Seed Knowledge
+
+`make seed` indexes every Markdown, PDF and DOCX file under `docs/seed/`: seven documents for the
+fictional company Acme (handbook, benefits guide, IT help desk guide, onboarding, access control,
+incident response and a customer contract). `docs/demo_upload/` holds a parental leave policy
+that is deliberately left out, so you can watch "I don't know" turn into a cited answer.
+
+## Embeddings
+
+`.env.example` uses `EMBEDDING_PROVIDER=local`, which runs `BAAI/bge-small-en-v1.5` on CPU through
+FastEmbed (installed by the `local-embeddings` extra; the first run downloads the model). `openai`
+uses `OPENAI_EMBEDDING_MODEL`. `hash` needs no download but is not semantic, so keep it for tests.
+
+Each provider gets its own Chroma collection; re-run `make seed` after switching.
+
+## Quality Checks
+
+```bash
+make lint
+make test
+```
+
+With the API running:
 
 ```bash
 make eval
 ```
 
-The eval script checks route selection and keyword presence. This is intentionally simple so you can
-extend it into real retrieval metrics, LLM-as-judge, and regression checks.
-
-## Embeddings
-
-The default `.env.example` uses:
-
-```bash
-EMBEDDING_PROVIDER=hash
-```
-
-This is free and deterministic, useful for bootstrapping without downloading a model.
-
-For a real free local embedding model, install the optional extra:
-
-```bash
-uv sync --extra dev --extra local-embeddings
-```
-
-Then set:
-
-```bash
-EMBEDDING_PROVIDER=local
-LOCAL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
-```
-
-`BAAI/bge-small-en-v1.5` runs locally through FastEmbed, so it does not call OpenAI.
-The first run downloads the model. If you switch embedding providers/models after indexing docs,
-clear `data/chroma` and run `make seed` again because vector dimensions may differ.
+The eval replays `evals/questions.jsonl` and reports route and answer-keyword accuracy.
 
 ## Docker
 
-This starts both Postgres (`db`) and the API together; the API waits for Postgres to be healthy
-before booting:
+Starts Postgres (`db`) and the API together; the API waits for Postgres to be healthy:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
-
-## Learning Path Inside This Project
-
-1. Run the mock system without `OPENAI_API_KEY`.
-2. Run `make seed`, upload extra documents if needed, and call `/v1/chat`.
-3. Read `app/agents/graph.py` to understand the LangGraph flow.
-4. Read `app/services/rag.py` and replace the mock behavior with real prompts.
-5. Add a real database tool next to `app/db/fake_database.py`.
-6. Improve `evals/questions.jsonl` with 50 real business questions.
-7. Add production observability: LangSmith, OpenTelemetry, or your cloud logging stack.
