@@ -61,6 +61,11 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
   // instead of being overwritten when it arrives.
   const initialLoad = useRef<Promise<void>>(Promise.resolve());
   const initialDone = useRef(false);
+  // Bumped when the user opens or starts a chat, so a late initial load does not replace it.
+  const choice = useRef(0);
+  // Sends run one at a time, in order: two quick "Ask about this" clicks are two questions.
+  const sendQueue = useRef<Promise<void>>(Promise.resolve());
+  const queued = useRef(0);
   const onMissingRef = useRef(options.onInitialMissing);
   onMissingRef.current = options.onInitialMissing;
 
@@ -98,11 +103,12 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
     }
     // Marked done only when settled: React's dev double-run cancels the first attempt.
     let cancelled = false;
+    const chosen = choice.current;
     initialLoad.current = getConversation(settings, token, initialConversationId)
       .then((detail) => {
         if (cancelled) return;
         initialDone.current = true;
-        show(detail);
+        if (choice.current === chosen) show(detail);
       })
       .catch(() => {
         if (cancelled) return;
@@ -116,6 +122,7 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
   }, [refreshConversations, settings, token, initialConversationId]);
 
   function newChat() {
+    choice.current += 1;
     setActive(null);
     setMessages([]);
     setTrace(EMPTY_TRACE);
@@ -123,6 +130,7 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
 
   async function selectConversation(id: string) {
     if (!token) return;
+    choice.current += 1;
     try {
       show(await getConversation(settings, token, id));
     } catch (error) {
@@ -164,10 +172,23 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
     return question || message.content;
   }
 
-  async function send(text: string) {
-    if (!token) return;
-    await initialLoad.current;
+  function send(text: string): Promise<void> {
+    if (!token) return Promise.resolve();
+    // Busy from the moment it is queued, so the composer cannot fire again meanwhile.
+    queued.current += 1;
+    setIsStreaming(true);
+    const run = sendQueue.current
+      .then(() => initialLoad.current)
+      .then(() => streamAnswer(token, text))
+      .finally(() => {
+        queued.current -= 1;
+        setIsStreaming(queued.current > 0);
+      });
+    sendQueue.current = run.catch(() => {});
+    return run;
+  }
 
+  async function streamAnswer(token: string, text: string) {
     const assistantId = newId("assistant");
     const update = (patch: (item: ChatMessage) => Partial<ChatMessage>) =>
       setMessages((current) =>
@@ -179,7 +200,6 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
       { id: newId("user"), role: "user", content: text },
       { id: assistantId, role: "assistant", content: "" },
     ]);
-    setIsStreaming(true);
     setTrace({ ...EMPTY_TRACE, route: "thinking", traceId: "pending" });
 
     try {
@@ -218,8 +238,6 @@ export function useChat(settings: Settings, token: string | null, options: ChatO
         route: "error",
         content: error instanceof Error ? error.message : "Request failed.",
       }));
-    } finally {
-      setIsStreaming(false);
     }
   }
 

@@ -37,7 +37,7 @@ The assistant usually lives where employees already work: the intranet, the HR p
 portal. One script tag adds an "Ask Acme" button that opens the chat in a side panel:
 
 ```html
-<script src="https://your-docanswer-host/widget.js"
+<script src="https://your-docanswer-host/widget.js" data-docanswer
         data-name="Ask Acme" data-context="benefits" defer></script>
 ```
 

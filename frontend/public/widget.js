@@ -1,7 +1,7 @@
 /*
  * DocAnswer widget: adds the assistant to any web page with one script tag.
  *
- *   <script src="https://your-docanswer-host/widget.js"
+ *   <script src="https://your-docanswer-host/widget.js" data-docanswer
  *           data-name="Ask Acme" data-context="benefits" defer></script>
  *
  * data-name     label on the launcher and in the panel header (default "Ask Acme")
@@ -9,14 +9,15 @@
  *
  * The page can also call window.DocAnswer.open("question") to open the panel and ask.
  *
- * Loaded by a tag manager or as a module, where the script tag cannot be found, set
- * window.DocAnswerConfig = { host: "https://your-docanswer-host", name, context } first.
+ * data-docanswer marks the tag, so the widget can find it when document.currentScript is not set
+ * (tag managers, module loaders). Without a tag at all, set window.DocAnswerConfig =
+ * { host: "https://your-docanswer-host", name, context } before loading it.
  */
 (function () {
   if (window.DocAnswer) return;
 
   var config = window.DocAnswerConfig || {};
-  var script = document.currentScript || document.querySelector('script[src*="widget.js"]');
+  var script = document.currentScript || document.querySelector("script[data-docanswer]");
   var data = (script && script.dataset) || {};
   var host = config.host || (script && script.src);
   if (!host) {
@@ -95,7 +96,11 @@
       "/embed.html?name=" +
       encodeURIComponent(name) +
       "&context=" +
-      encodeURIComponent(context);
+      encodeURIComponent(context) +
+      // The embed checks this page's origin against its allowlist. Browsers only deliver its
+      // messages to the real parent, so a page that lies here gets nothing.
+      "&host=" +
+      encodeURIComponent(window.location.origin);
     panel.appendChild(iframe);
   }
 

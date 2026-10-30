@@ -49,3 +49,9 @@ def test_strip_page_numbers_drops_footer_lines_only() -> None:
     assert strip_page_numbers(text) == (
         "401(k) Retirement Plan\nMatch up to 4 percent.\n\nSee page 4 for details.\n12"
     )
+
+
+def test_strip_page_numbers_keeps_content_that_looks_like_a_fraction() -> None:
+    text = "Support hours\n24/7\nPage 3 of 5\n2 / 2\nUptime 9 of 10 months"
+
+    assert strip_page_numbers(text) == "Support hours\n24/7\n\n\nUptime 9 of 10 months"
