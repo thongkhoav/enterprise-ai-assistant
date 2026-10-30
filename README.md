@@ -46,6 +46,10 @@ portal. One script tag adds an "Ask Acme" button that opens the chat in a side p
   from an "Ask about this" button.
 - The panel keeps its conversation across page loads, shows a dot on the button when the support
   team replies, and can open the conversation in the full app.
+- Only allowed sites can host it: the app's own origin plus `VITE_EMBED_ALLOWED_ORIGINS`, and
+  the frontend image sends `frame-ancestors` from `EMBED_FRAME_ANCESTORS` for `embed.html`.
+- Loaded by a tag manager or as a module, set `window.DocAnswerConfig = { host, name, context }`
+  before the script.
 
 Try it at http://localhost:5173/hub/ after starting the frontend: Home, Benefits and IT Help pages,
 each with the widget. Employees use the widget; admins manage documents and the inbox in the

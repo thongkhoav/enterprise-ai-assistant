@@ -779,15 +779,11 @@ function splitSentences(text: string): string[] {
 }
 
 /**
- * Drop markdown heading and bullet markers that chunking flattened into the passage, a PDF page
- * footer ("Page 2") at the start, and the sentence fragment a chunk can start with ("according
- * to these tiers. Uptime from ...").
+ * Drop markdown heading and bullet markers that chunking flattened into the passage, and the
+ * sentence fragment a chunk can start with ("according to these tiers. Uptime from ...").
  */
 function cleanPassage(text: string | null | undefined): string {
-  const cleaned = (text || "")
-    .replace(/(^|\s)(#{1,6}|-)\s+/g, "$1")
-    .replace(/^\s*Page \d+\s+/, "")
-    .trim();
+  const cleaned = (text || "").replace(/(^|\s)(#{1,6}|-)\s+/g, "$1").trim();
   const fragment = /^[a-z][^.!?]{0,120}[.!?]\s+(?=[A-Z])/.exec(cleaned);
   return fragment ? cleaned.slice(fragment[0].length) : cleaned;
 }

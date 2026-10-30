@@ -17,10 +17,20 @@ const CONTEXT = params.get("context");
 const ASSISTANT_NAME = params.get("name") || "Ask Acme";
 // Keeps the conversation when the employee moves to another page of the host site.
 const CONVERSATION_KEY = "docanswer-embed-conversation";
+const SAVED_CONVERSATION = readSaved();
 
-/** Tell the host page (widget.js) something happened: ready, close, unread. */
-function notifyHost(type: string): void {
-  if (window.parent !== window) window.parent.postMessage({ type: `docanswer:${type}` }, "*");
+// Sites allowed to host the widget: this origin plus VITE_EMBED_ALLOWED_ORIGINS (comma
+// separated). Messages from any other parent page are ignored, and none are sent to it.
+const ALLOWED_ORIGINS = new Set(
+  [window.location.origin, ...(import.meta.env.VITE_EMBED_ALLOWED_ORIGINS || "").split(",")]
+    .map((origin: string) => origin.trim())
+    .filter(Boolean),
+);
+const HOST_ORIGIN = hostOrigin();
+
+/** Tell the host page (widget.js) something happened: ready, close, unread, watch. */
+function notifyHost(type: string, detail: Record<string, unknown> = {}): void {
+  if (HOST_ORIGIN) window.parent.postMessage({ type: `docanswer:${type}`, ...detail }, HOST_ORIGIN);
 }
 
 /** The assistant inside the widget iframe: one conversation, no admin tools. */
@@ -28,24 +38,25 @@ export function EmbedApp() {
   const [settings] = useState<Settings>(() => loadSettings());
   const session = useSession(settings);
   const { token, user } = session;
-  const chat = useChat(settings, token);
+  const chat = useChat(settings, token, {
+    initialConversationId: SAVED_CONVERSATION,
+    onInitialMissing: clearSaved,
+    listConversations: false,
+  });
   const reloadRef = useRef<(conversationId: string) => void>(() => {});
   reloadRef.current = chat.reloadIfOpen;
-  const support = useSupport(settings, token, false, (request) => {
-    if (request.conversation_id) reloadRef.current(request.conversation_id);
-    notifyHost("unread");
-  });
+  const support = useSupport(
+    settings,
+    token,
+    false,
+    (request) => {
+      if (request.conversation_id) reloadRef.current(request.conversation_id);
+      notifyHost("unread");
+    },
+    "docanswer-embed-open-requests",
+  );
   const sendRef = useRef(chat.send);
   sendRef.current = chat.send;
-
-  // Restore the conversation from the previous page once signed in.
-  const restored = useRef(false);
-  useEffect(() => {
-    if (!token || restored.current) return;
-    restored.current = true;
-    const saved = readSaved();
-    if (saved) void chat.selectConversation(saved);
-  }, [token, chat]);
 
   useEffect(() => {
     if (!chat.activeConversationId) return;
@@ -59,7 +70,8 @@ export function EmbedApp() {
   // The host page can ask a question for the employee, e.g. "Ask about this page".
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      if (event.source !== window.parent || event.data?.type !== "docanswer:ask") return;
+      if (event.source !== window.parent || event.origin !== HOST_ORIGIN) return;
+      if (event.data?.type !== "docanswer:ask") return;
       const text = String(event.data.text || "").trim();
       if (text) void sendRef.current(text);
     }
@@ -70,6 +82,13 @@ export function EmbedApp() {
   useEffect(() => {
     if (user) notifyHost("ready");
   }, [user]);
+
+  // While a request waits for a person, the host page keeps the widget loaded on every page,
+  // so the reply can raise the unread dot even when the panel is closed.
+  const waiting = support.requests.some((request) => request.status === "open");
+  useEffect(() => {
+    if (user) notifyHost("watch", { on: waiting });
+  }, [user, waiting]);
 
   async function handleSupportRequest(kind: SupportKind, message: ChatMessage) {
     await support.create(
@@ -82,11 +101,7 @@ export function EmbedApp() {
 
   function startOver() {
     chat.newChat();
-    try {
-      sessionStorage.removeItem(CONVERSATION_KEY);
-    } catch {
-      // Nothing saved to clear.
-    }
+    clearSaved();
   }
 
   function openFullApp() {
@@ -171,4 +186,27 @@ function readSaved(): string | null {
   } catch {
     return null;
   }
+}
+
+function clearSaved(): void {
+  try {
+    sessionStorage.removeItem(CONVERSATION_KEY);
+  } catch {
+    // Nothing saved to clear.
+  }
+}
+
+/** The parent page's origin when it is allowed to host the widget, else null. */
+function hostOrigin(): string | null {
+  if (window.parent === window) return null;
+  const ancestors = window.location.ancestorOrigins;
+  let origin = ancestors?.length ? ancestors[0] : null;
+  if (!origin && document.referrer) {
+    try {
+      origin = new URL(document.referrer).origin;
+    } catch {
+      origin = null;
+    }
+  }
+  return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
 }

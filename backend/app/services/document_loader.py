@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from hashlib import sha1
 from io import BytesIO
@@ -9,6 +10,12 @@ from fastapi import UploadFile
 from pypdf import PdfReader
 
 SUPPORTED_SUFFIXES = {".pdf", ".docx", ".md", ".txt"}
+
+# A line that is only a page number footer or header: "Page 2", "Page 2 of 5", "2 of 5", "2 / 5".
+_PAGE_NUMBER_LINE = re.compile(
+    r"^[ \t]*(?:page[ \t]+\d+(?:[ \t]*(?:of|/)[ \t]*\d+)?|\d+[ \t]*(?:of|/)[ \t]*\d+)[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -68,7 +75,7 @@ def _extract_pages(content: bytes, suffix: str) -> tuple[list[str], dict]:
     """
     if suffix == ".pdf":
         reader = PdfReader(BytesIO(content))
-        pages = [page.extract_text() or "" for page in reader.pages]
+        pages = [strip_page_numbers(page.extract_text() or "") for page in reader.pages]
         return pages, {"page_count": len(pages)}
 
     if suffix == ".docx":
@@ -79,3 +86,8 @@ def _extract_pages(content: bytes, suffix: str) -> tuple[list[str], dict]:
         return ["\n".join(paragraphs)], {"paragraph_count": len(paragraphs)}
 
     return [content.decode("utf-8", errors="ignore")], {}
+
+
+def strip_page_numbers(text: str) -> str:
+    """Drop page-number lines, which would otherwise end up inside chunks and quoted passages."""
+    return _PAGE_NUMBER_LINE.sub("", text).strip("\n")
